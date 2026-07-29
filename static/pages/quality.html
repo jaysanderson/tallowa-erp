@@ -1,4 +1,24 @@
 <div class="kpis" id="kpis"></div>
+<h2 class="sect">Overnight FPY alert - Line A-2</h2>
+<div class="card">
+  <div id="wf"></div>
+</div>
+<div class="grid2">
+  <div class="card">
+    <h3>Ranked root-cause suspects<span class="ai-tag">AGENTIC RANKING - CITED</span><span class="sp"></span>
+      <button class="btn orange" id="rankGo">What happened overnight?</button></h3>
+    <div id="fpyrootcause"><div class="hint">Runs the retrieval agent over the defect register, raw-lot history, machine service record and shift notes for line A-2.</div></div>
+  </div>
+  <div class="card">
+    <h3>Contain the bad lot</h3>
+    <div class="hint">Every quarantine, hold and report needs the quality inspector's approval.</div>
+    <div id="containOut" style="margin-top:8px"></div>
+    <div class="row" style="margin-top:10px">
+      <button class="btn" id="containGo" disabled>Contain finished lot TC-A-4900 (resin lot KP-7742)</button>
+    </div>
+    <div id="draftCard" style="margin-top:16px"></div>
+  </div>
+</div>
 <div class="card">
   <h3>Quality holds</h3>
   <div id="holds"></div>
@@ -13,22 +33,6 @@
       <option>receiving</option><option>customer</option></select>
   </h3>
   <div id="defs"></div>
-</div>
-<h2 class="sect">Overnight FPY alert - Line A-2</h2>
-<div class="card">
-  <div id="wf"></div>
-</div>
-<div class="grid2">
-  <div id="fpyrootcause"></div>
-  <div class="card">
-    <h3>Contain the bad lot</h3>
-    <div class="hint">Every quarantine, hold and report needs the quality inspector's approval.</div>
-    <div id="containOut" style="margin-top:8px"></div>
-    <div class="row" style="margin-top:10px">
-      <button class="btn" id="containGo">Contain finished lot TC-A-4900 (resin lot KP-7742)</button>
-    </div>
-    <div id="draftCard" style="margin-top:16px"></div>
-  </div>
 </div>
 <div class="grid2">
   <div id="rootcause"></div>
@@ -49,19 +53,30 @@ wf.set('alert', 'done', {detail:'Line A-2 flagged overnight - FPY fell below tar
 wf.set('rank', 'current');
 
 (async function(){
-  const rc = document.getElementById('fpyrootcause');
-  aiPanel(rc, {endpoint:'/api/ai/fpy-root-cause', title:'Ranked root-cause suspects',
-    tag:'AGENTIC RANKING - CITED', button:'What happened overnight?',
-    body:{line:'A-2'}, golden:'fpy-root-cause', autorun:true,
-    onResult:(d, ms)=>{
-      if (!d){ wf.set('rank', 'blocked', {detail:'No suspects returned - check the defect register.'}); return; }
-      const fpy = d.data_used && d.data_used.fpy;
-      wf.set('rank', 'done', {
-        detail: (fpy!=null ? 'FPY '+fpy+'% on the flagged run - ' : '') + 'suspects ranked across material, equipment and shift.',
-        trace: wfTrace('defect register, raw lots, machines, shift notes', ms),
-      });
-      wf.set('contain', 'current', {authority:'Quality inspector'});
-    }});
+  document.getElementById('rankGo').onclick = async ()=>{
+    const btn = document.getElementById('rankGo');
+    btn.disabled = true;
+    wf.set('rank', 'current');
+    const t0 = performance.now();
+    const d = await runAgentTrace('fpyrootcause', '/api/ai/fpy-root-cause',
+      {line:'A-2', golden:'fpy-root-cause', ...(DEMO_MODE?{mode:'cached'}:{})},
+      {title:'Ranking the root-cause suspects',
+       sub:'Checking the defect register, raw-lot history, machine service record and shift notes for line A-2.'});
+    const ms = Math.round(performance.now()-t0);
+    btn.disabled = false;
+    btn.textContent = 'Run it again';
+    if (!d || d.empty){
+      wf.set('rank', 'blocked', {detail:'No suspects returned - check the defect register.'});
+      return;
+    }
+    const fpy = d.data_used && d.data_used.fpy;
+    wf.set('rank', 'done', {
+      detail: (fpy!=null ? 'FPY '+fpy+'% on the flagged run - ' : '') + 'suspects ranked across material, equipment and shift.',
+      trace: wfTrace('defect register, raw lots, machines, shift notes', ms),
+    });
+    wf.set('contain', 'current', {authority:'Quality inspector'});
+    document.getElementById('containGo').disabled = false;
+  };
 
   document.getElementById('containGo').onclick = async ()=>{
     const btn = document.getElementById('containGo');
@@ -97,39 +112,41 @@ async function loadDraft(){
     '<div class="row"><button class="btn ghost" id="draftGo">Draft the 8D report</button></div>'+
     '<div id="draftOut" style="margin-top:8px"></div>';
   document.getElementById('draftGo').onclick = async ()=>{
-    const out = document.getElementById('draftOut');
-    out.innerHTML = '<div class="shimmer"><span class="spin"></span>Drafting from the evidence and live containment status...</div>';
+    const btn = document.getElementById('draftGo');
+    btn.disabled = true;
     const t0 = performance.now();
-    try{
-      const d = await api('/api/ai/8d-draft', {method:'POST', body:{line:'A-2', golden:'8d-draft', ...(DEMO_MODE?{mode:'cached'}:{})}});
-      const ms = Math.round(performance.now()-t0);
-      d8Fields = d.fields;
-      out.innerHTML =
-        '<div id="d8draft"></div>'+
-        citesHtml(d.citations)+
-        '<div class="row" style="margin-top:8px"><button class="btn" id="d8approve">Approve as shown above</button></div>'+
-        '<div id="d8out" style="margin-top:8px"></div>';
-      const d8editor = draftPreview('d8draft', d.answer);
-      wf.set('draft', 'done', {
-        detail: '8D drafted from the containment record and defect evidence - ready for review.',
-        trace: wfTrace('containment status, defect evidence, 8D procedure', ms),
+    const d = await runAgentTrace('draftOut', '/api/ai/8d-draft',
+      {line:'A-2', golden:'8d-draft', ...(DEMO_MODE?{mode:'cached'}:{})},
+      {title:'Drafting the 8D report',
+       sub:'Pulling the root-cause evidence, live containment status and the QP-8D procedure.',
+       renderAnswer: dd=>
+         '<div id="d8draft"></div>'+citesHtml(dd.citations)+
+         '<div class="row" style="margin-top:8px"><button class="btn" id="d8approve">Approve as shown above</button></div>'+
+         '<div id="d8out" style="margin-top:8px"></div>'});
+    const ms = Math.round(performance.now()-t0);
+    btn.disabled = false;
+    if (!d || d.empty) return;
+    d8Fields = d.fields;
+    const d8editor = draftPreview('d8draft', d.answer);
+    wf.set('draft', 'done', {
+      detail: '8D drafted from the containment record and defect evidence - ready for review.',
+      trace: wfTrace('containment status, defect evidence, 8D procedure', ms),
+    });
+    wf.set('approve', 'current', {authority:'Quality inspector'});
+    document.getElementById('d8approve').onclick = async ()=>{
+      const body = d8editor.getText();
+      const t1 = performance.now();
+      const r = await api('/api/8d-reports/', {method:'POST', body:{
+        line_code:'A-2', body, approve:true, ...(d8Fields||{})}});
+      const ms2 = Math.round(performance.now()-t1);
+      document.getElementById('d8out').innerHTML =
+        '<div class="grounding">Report <b>'+r.report_no+'</b> approved - filed, three hours before the OEM deadline.</div>';
+      wf.set('approve', 'done', {
+        detail: 'Report '+r.report_no+' approved and filed - three hours before the OEM deadline.',
+        trace: wfTrace('quality sign-off recorded', ms2),
+        authority:'Quality inspector',
       });
-      wf.set('approve', 'current', {authority:'Quality inspector'});
-      document.getElementById('d8approve').onclick = async ()=>{
-        const body = d8editor.getText();
-        const t1 = performance.now();
-        const r = await api('/api/8d-reports/', {method:'POST', body:{
-          line_code:'A-2', body, approve:true, ...(d8Fields||{})}});
-        const ms2 = Math.round(performance.now()-t1);
-        document.getElementById('d8out').innerHTML =
-          '<div class="grounding">Report <b>'+r.report_no+'</b> approved - filed, three hours before the OEM deadline.</div>';
-        wf.set('approve', 'done', {
-          detail: 'Report '+r.report_no+' approved and filed - three hours before the OEM deadline.',
-          trace: wfTrace('quality sign-off recorded', ms2),
-          authority:'Quality inspector',
-        });
-      };
-    }catch(ex){ out.innerHTML = '<div class="empty">'+esc(ex.message)+'</div>'; }
+    };
   };
 }
 </script>

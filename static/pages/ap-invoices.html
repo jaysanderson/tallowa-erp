@@ -66,7 +66,6 @@ document.getElementById('fstatus').onchange = loadTable;
 async function explain(){
   const ap_no = document.getElementById('apno').value.trim();
   const out = document.getElementById('apExplainOut');
-  out.innerHTML = '<div class="shimmer"><span class="spin"></span>Working - reading the invoice and the AP authorisation policy...</div>';
   document.getElementById('similarCard').style.display = 'none';
   wf.set('explain', 'current');
   wf.set('sharedcause', 'pending');
@@ -74,11 +73,12 @@ async function explain(){
   wf.set('approve', 'pending', {authority:'AP clerk / finance'});
   const t0 = performance.now();
   try{
-    const d = await api('/api/ai/ap-error-explain', {method:'POST', body:{ap_no, golden:'ap-error-explain', ...(DEMO_MODE?{mode:'cached'}:{})}});
+    const d = await runAgentTrace(out, '/api/ai/ap-error-explain',
+      {ap_no, golden:'ap-error-explain', ...(DEMO_MODE?{mode:'cached'}:{})},
+      {title:'Explaining the posting failure',
+       sub:'Reading the invoice record and the AP authorisation policy for '+esc(ap_no)+'.'});
     const ms1 = Math.round(performance.now()-t0);
-    let h = d.answer ? '<div class="ai-answer">'+md(d.answer)+'</div>' : '<div class="empty">No grounded answer.</div>';
-    h += citesHtml(d.citations);
-    out.innerHTML = h;
+    if (!d || d.empty) throw new Error('No grounded answer.');
     wf.set('explain', 'done', {
       detail: 'Cause identified for '+ap_no+(d.data_used && d.data_used.error_code ? ' - error '+d.data_used.error_code : '')+'.',
       trace: wfTrace('invoice record, AP authorisation policy', ms1),
@@ -123,11 +123,13 @@ document.getElementById('apno').addEventListener('keydown', e=>{ if(e.key==='Ent
 document.getElementById('apBatchGo').onclick = async ()=>{
   const ap_no = document.getElementById('apno').value.trim();
   const out = document.getElementById('apBatchOut');
-  out.innerHTML = '<div class="shimmer"><span class="spin"></span>Proposing the batch correction...</div>';
   const t0 = performance.now();
-  const d = await api('/api/ai/ap-batch-fix', {method:'POST', body:{ap_no, golden:'ap-batch-fix', ...(DEMO_MODE?{mode:'cached'}:{})}});
+  const d = await runAgentTrace(out, '/api/ai/ap-batch-fix',
+    {ap_no, golden:'ap-batch-fix', ...(DEMO_MODE?{mode:'cached'}:{})},
+    {title:'Proposing the batch correction',
+     sub:'Checking the vendor master and the AP authorisation policy for a shared fix.'});
   const ms = Math.round(performance.now()-t0);
-  out.innerHTML = (d.answer?'<div class="ai-answer">'+md(d.answer)+'</div>':'') + citesHtml(d.citations);
+  if (!d || d.empty) return;
   const u = me();
   if (curGroup && curGroup.all_within_clerk_authority && ['finance','admin'].includes(u.role)){
     wf.set('proposefix', 'done', {

@@ -77,55 +77,57 @@ document.getElementById('cgo').onclick = async ()=>{
   wf.set('propose', 'pending');
   wf.set('approve', 'pending');
   const out = document.getElementById('cout');
-  out.innerHTML = '<div class="shimmer"><span class="spin"></span>Working - BOM explosion, stock, work-centre load, open POs, contract priority, all in parallel...</div>';
   document.getElementById('whatifCard').style.display='none';
   document.getElementById('commitCard').style.display='none';
   const t0 = performance.now();
-  try{
-    const d = await api('/api/ai/ctp-commit', {method:'POST', body:{...lastReq, golden:'ctp-commit', ...(DEMO_MODE?{mode:'cached'}:{})}});
-    const ms = Math.round(performance.now()-t0);
-    lastCtp = d;
-    out.innerHTML = ctpCard(d);
-    if (d.ctp.binding){
-      wf.set('check', 'done', {
-        detail: 'Short '+n0(d.ctp.binding.short)+' units of '+d.ctp.binding.part_no+' - commit date '+dt(d.ctp.commit_date)+'.',
-        trace: wfTrace('BOM, stock, work-centre load, open POs, contract priority', ms),
-      });
-      wf.set('whatif', 'current');
-      wf.set('propose', 'current');
-      document.getElementById('whatifCard').style.display='block';
-    } else {
-      wf.set('check', 'done', {
-        detail: 'Material position strong - no shortage against this quantity.',
-        trace: wfTrace('BOM, stock, work-centre load, open POs, contract priority', ms),
-      });
-      wf.set('whatif', 'skipped', {detail:'Not needed - no shortage on this order.'});
-      wf.set('propose', 'skipped', {detail:'Not needed - confirmed as a standard order.'});
-      wf.set('approve', 'skipped', {detail:'Not applicable.'});
-    }
-    document.getElementById('commitCard').style.display='block';
-    renderCommit();
-  }catch(ex){
-    out.innerHTML = '<div class="empty">Could not generate: '+esc(ex.message)+'</div>';
-    wf.set('check', 'blocked', {detail: ex.message});
+  const d = await runAgentTrace(out, '/api/ai/ctp-commit',
+    {...lastReq, golden:'ctp-commit', ...(DEMO_MODE?{mode:'cached'}:{})},
+    {title:'Checking capable-to-promise',
+     sub:'BOM explosion, stock, work-centre load, open POs and contract priority, all in parallel.',
+     renderAnswer: dd=>ctpCard(dd)});
+  const ms = Math.round(performance.now()-t0);
+  if (!d || d.empty){
+    wf.set('check', 'blocked', {detail: 'Could not generate a commit answer - try again.'});
+    return;
   }
+  lastCtp = d;
+  if (d.ctp.binding){
+    wf.set('check', 'done', {
+      detail: 'Short '+n0(d.ctp.binding.short)+' units of '+d.ctp.binding.part_no+' - commit date '+dt(d.ctp.commit_date)+'.',
+      trace: wfTrace('BOM, stock, work-centre load, open POs, contract priority', ms),
+    });
+    wf.set('whatif', 'current');
+    wf.set('propose', 'current');
+    document.getElementById('whatifCard').style.display='block';
+  } else {
+    wf.set('check', 'done', {
+      detail: 'Material position strong - no shortage against this quantity.',
+      trace: wfTrace('BOM, stock, work-centre load, open POs, contract priority', ms),
+    });
+    wf.set('whatif', 'skipped', {detail:'Not needed - no shortage on this order.'});
+    wf.set('propose', 'skipped', {detail:'Not needed - confirmed as a standard order.'});
+    wf.set('approve', 'skipped', {detail:'Not applicable.'});
+  }
+  document.getElementById('commitCard').style.display='block';
+  renderCommit();
 };
 
 document.getElementById('cwhatif').onclick = async ()=>{
   const out = document.getElementById('whatifOut');
-  out.innerHTML = '<div class="shimmer"><span class="spin"></span>Re-running the scenario with the component expedited...</div>';
   const t0 = performance.now();
-  try{
-    const d = await api('/api/ai/ctp-commit', {method:'POST', body:{...lastReq, expedite:true, golden:'ctp-commit-expedite', ...(DEMO_MODE?{mode:'cached'}:{})}});
-    const ms = Math.round(performance.now()-t0);
-    lastExpedite = d;
-    out.innerHTML = ctpCard(d);
-    wf.set('whatif', 'done', {
-      detail: 'Expedite modelled - commit date pulled to '+dt(d.ctp.commit_date)+(d.ctp.conflict ? (d.ctp.conflict.conflict?' (conflicts with another order)':' (no conflict with other orders)') : '')+'.',
-      trace: wfTrace('supplier lead time, order priority conflicts', ms),
-    });
-    renderCommit();
-  }catch(ex){ out.innerHTML = '<div class="empty">Could not generate: '+esc(ex.message)+'</div>'; }
+  const d = await runAgentTrace(out, '/api/ai/ctp-commit',
+    {...lastReq, expedite:true, golden:'ctp-commit-expedite', ...(DEMO_MODE?{mode:'cached'}:{})},
+    {title:'Re-running the scenario with the component expedited',
+     sub:'Supplier lead time and an order-priority conflict check.',
+     renderAnswer: dd=>ctpCard(dd)});
+  const ms = Math.round(performance.now()-t0);
+  if (!d || d.empty) return;
+  lastExpedite = d;
+  wf.set('whatif', 'done', {
+    detail: 'Expedite modelled - commit date pulled to '+dt(d.ctp.commit_date)+(d.ctp.conflict ? (d.ctp.conflict.conflict?' (conflicts with another order)':' (no conflict with other orders)') : '')+'.',
+    trace: wfTrace('supplier lead time, order priority conflicts', ms),
+  });
+  renderCommit();
 };
 
 function renderCommit(){

@@ -1612,6 +1612,100 @@ DEFAULT_QUESTIONS = {
 }
 
 
+def _digest_detail(data_used: dict) -> str:
+    """Short human-readable summary of the live figures a digest pulled -
+    the trace card shows this, never the full digest text (too long)."""
+    parts = []
+    for k, v in (data_used or {}).items():
+        if isinstance(v, (int, float, str)) and str(v) != "":
+            parts.append(f"{k.replace('_', ' ')}: {v}")
+    return ", ".join(parts[:5])
+
+
+def _synth_feature_trace(cfg: dict, data: dict) -> list[dict]:
+    """A cached-golden replay still shows the real SHAPE of the work (live
+    data queried, documents consulted, answer composed) instead of dumping
+    the stored answer straight onto the screen - the guaranteed-demo path
+    must look exactly like the live one, just backed by a captured answer."""
+    out = [{"type": "tool_call", "label": "Querying live plant data"},
+           {"type": "tool_result", "ok": True, "label": "Live plant data retrieved",
+            "detail": _digest_detail(data.get("data_used"))}]
+    if cfg["mode"] != "erp":
+        out.append({"type": "doc_search", "label": "Consulting the plant documents",
+                    "detail": f"{len(data.get('citations') or [])} passage(s) matched"})
+        out.append({"type": "composing", "label": "Composing the grounded answer"})
+    else:
+        out.append({"type": "composing", "label": "Composing the answer"})
+    return out
+
+
+async def stream_feature(name: str, body: dict):
+    """NDJSON progress trace for a single grounded feature call - the real
+    steps (live data queried, documents consulted, answer composed), not a
+    generic spinner. Ends with one `result` event carrying exactly the
+    payload the buffered endpoint would have returned, so callers render
+    it identically either way."""
+    cfg = F[name]
+    golden = body.get("golden") or name
+    question = (body.get("query") or body.get("question") or
+                DEFAULT_QUESTIONS.get(name, f"Provide the {name} analysis."))
+    yield {"type": "start", "question": question}
+
+    if body.get("mode") == "cached":
+        c = cached_golden(golden)
+        if c:
+            for ev in _synth_feature_trace(cfg, c):
+                yield ev
+            yield {"type": "result", "data": c}
+            yield {"type": "done"}
+            return
+
+    try:
+        con = connect()
+        try:
+            t0 = time.monotonic()
+            digest, data_used = cfg["digest"](con, body) if cfg["digest"] else ("", {})
+            ms0 = int((time.monotonic() - t0) * 1000)
+        finally:
+            con.close()
+        yield {"type": "tool_call", "label": "Querying live plant data"}
+        yield {"type": "tool_result", "ok": True, "label": "Live plant data retrieved",
+               "detail": _digest_detail(data_used), "duration_ms": ms0}
+
+        if cfg["mode"] == "erp":
+            yield {"type": "composing", "label": "Composing the answer"}
+            t1 = time.monotonic()
+            text = await predict_gen(cfg["system"], "Live plant data (queried now "
+                                     "from the ERP):\n" + digest + f"\n\nRequest: {question}")
+            ms1 = int((time.monotonic() - t1) * 1000)
+            data = {"answer": clean(text), "citations": [], "data_used": data_used,
+                    "digest": digest, "latency_ms": ms1, "cached": False}
+        else:
+            yield {"type": "doc_search", "label": "Consulting the plant documents"}
+            yield {"type": "composing", "label": "Composing the grounded answer"}
+            d = await kb_ask(question, cfg["system"], cfg["scope"], digest,
+                             compose=cfg["compose"])
+            answer = clean(d.get("answer") or "")
+            if d.get("status") in ("no_context", "no_retrieval_data") or not answer.strip():
+                raise RuntimeError("no_context")
+            data = {"answer": answer, "citations": parse_citations(d.get("retrieval_results")),
+                    "data_used": data_used, "digest": digest,
+                    "latency_ms": d.get("_latency_ms"), "cached": False}
+        yield {"type": "result", "data": data}
+    except Exception:
+        c = cached_golden(golden)
+        if c:
+            yield {"type": "fallback", "message": "Showing a captured example "
+                                                   "while the live answer recovers."}
+            for ev in _synth_feature_trace(cfg, c):
+                yield ev
+            yield {"type": "result", "data": c}
+        else:
+            yield {"type": "error", "message": "Could not generate a grounded "
+                                               "answer for this - try again."}
+    yield {"type": "done"}
+
+
 def make_handler(name: str):
     async def handler(req: Request, user: dict = Depends(current_user)):
         body = {}
@@ -1619,6 +1713,10 @@ def make_handler(name: str):
             body = await req.json()
         except Exception:
             pass
+        if body.get("stream"):
+            return StreamingResponse(
+                (json.dumps(ev) + "\n" async for ev in stream_feature(name, body)),
+                media_type="application/x-ndjson")
         golden = body.get("golden") or name
         if body.get("mode") == "cached":
             c = cached_golden(golden)
@@ -1791,16 +1889,49 @@ def split_8d_sections(md_text: str) -> dict:
     return out
 
 
-@router.post("/8d-draft")
-async def ai_8d_draft(req: Request, user: dict = Depends(current_user)):
-    body = await req.json()
+EIGHT_D_SYSTEM = (
+    GROUNDED + "You are the quality engineering assistant drafting "
+    "an 8D containment report from the evidence given, per the "
+    "plant's QP-8D procedure (cite it). Structure the draft with "
+    "these exact markdown headings, one short paragraph each: "
+    "## Problem (D2) - the FPY breach in numbers; ## Root cause "
+    "(D4) - the leading suspect from the evidence and its "
+    "confidence, naming the identifiers; ## Containment (D3) - "
+    "state the CURRENT containment status exactly as given (do not "
+    "assume a hold exists if the data says it does not) and what "
+    "should happen next; ## Corrective action (D5-D7) - pending "
+    "the quality inspector's approval, so phrase it as a "
+    "recommendation, not a completed action. Do not fabricate a "
+    "defect, lot, hold number or machine identifier not present in "
+    "the evidence.")
+
+
+async def _8d_draft_events(body: dict):
+    """Single source of truth for /8d-draft, streamed or buffered - the
+    buffered route below just drains this to its final `result` event."""
     golden = body.get("golden") or "8d-draft"
+    question = (body.get("query") or
+                "Draft the 8D containment report from this evidence.")
+    yield {"type": "start", "question": question}
+
     if body.get("mode") == "cached":
         c = cached_golden(golden)
         if c:
-            return c
+            yield {"type": "tool_call",
+                   "label": "Querying the root-cause evidence and containment status"}
+            yield {"type": "tool_result", "ok": True,
+                   "label": "Evidence and containment status retrieved",
+                   "detail": _digest_detail(c.get("data_used"))}
+            yield {"type": "doc_search", "label": "Consulting the QP-8D procedure",
+                   "detail": f"{len(c.get('citations') or [])} passage(s) matched"}
+            yield {"type": "composing", "label": "Drafting the 8D report"}
+            yield {"type": "result", "data": c}
+            yield {"type": "done"}
+            return
+
     con = connect()
     try:
+        t0 = time.monotonic()
         rc_digest, rc_data = dig_fpy_root_cause(con, body)
         # ground D3 (containment) in the ACTUAL current hold status, never an
         # assumed one - the report must say what is true right now
@@ -1810,6 +1941,7 @@ async def ai_8d_draft(req: Request, user: dict = Depends(current_user)):
                           LEFT JOIN holds h ON h.scope='finished_lot'
                             AND h.scope_id=fl.id AND h.status='open'
                           WHERE fl.run_id=?""", (run["id"],))
+        ms0 = int((time.monotonic() - t0) * 1000)
     finally:
         con.close()
     cont_lines = ["Current containment status (live, not assumed):"]
@@ -1820,38 +1952,49 @@ async def ai_8d_draft(req: Request, user: dict = Depends(current_user)):
                if f["hold_no"] else
                f"status '{f['status']}' - NOT yet on hold, still shippable."))
     rc_digest = rc_digest + "\n" + "\n".join(cont_lines)
-    system = (GROUNDED + "You are the quality engineering assistant drafting "
-              "an 8D containment report from the evidence given, per the "
-              "plant's QP-8D procedure (cite it). Structure the draft with "
-              "these exact markdown headings, one short paragraph each: "
-              "## Problem (D2) - the FPY breach in numbers; ## Root cause "
-              "(D4) - the leading suspect from the evidence and its "
-              "confidence, naming the identifiers; ## Containment (D3) - "
-              "state the CURRENT containment status exactly as given (do not "
-              "assume a hold exists if the data says it does not) and what "
-              "should happen next; ## Corrective action (D5-D7) - pending "
-              "the quality inspector's approval, so phrase it as a "
-              "recommendation, not a completed action. Do not fabricate a "
-              "defect, lot, hold number or machine identifier not present in "
-              "the evidence.")
-    question = (body.get("query") or
-                "Draft the 8D containment report from this evidence.")
+    yield {"type": "tool_call",
+           "label": "Querying the root-cause evidence and containment status"}
+    yield {"type": "tool_result", "ok": True,
+           "label": "Evidence and containment status retrieved",
+           "detail": _digest_detail(rc_data), "duration_ms": ms0}
     try:
-        d = await kb_ask(question, system, "containment", rc_digest, compose=True,
-                         top_k=15)
+        yield {"type": "doc_search", "label": "Consulting the QP-8D procedure"}
+        yield {"type": "composing", "label": "Drafting the 8D report"}
+        d = await kb_ask(question, EIGHT_D_SYSTEM, "containment", rc_digest,
+                         compose=True, top_k=15)
         answer = clean(d.get("answer") or "")
         if d.get("status") in ("no_context", "no_retrieval_data") or not answer.strip():
             raise RuntimeError("no_context")
-        return {"answer": answer, "fields": split_8d_sections(answer),
-                "citations": parse_citations(d.get("retrieval_results")),
-                "data_used": rc_data, "digest": rc_digest,
-                "latency_ms": d.get("_latency_ms"), "cached": False}
+        yield {"type": "result", "data": {
+            "answer": answer, "fields": split_8d_sections(answer),
+            "citations": parse_citations(d.get("retrieval_results")),
+            "data_used": rc_data, "digest": rc_digest,
+            "latency_ms": d.get("_latency_ms"), "cached": False}}
     except Exception:
         c = cached_golden(golden)
         if c:
-            return c
-        return {"answer": "", "empty": True, "citations": [],
-                "data_used": rc_data, "digest": rc_digest, "cached": False}
+            yield {"type": "fallback", "message": "Showing a captured example "
+                                                   "while the live draft recovers."}
+            yield {"type": "result", "data": c}
+        else:
+            yield {"type": "result", "data": {"answer": "", "empty": True,
+                   "citations": [], "data_used": rc_data, "digest": rc_digest,
+                   "cached": False}}
+    yield {"type": "done"}
+
+
+@router.post("/8d-draft")
+async def ai_8d_draft(req: Request, user: dict = Depends(current_user)):
+    body = await req.json()
+    if body.get("stream"):
+        return StreamingResponse(
+            (json.dumps(ev) + "\n" async for ev in _8d_draft_events(body)),
+            media_type="application/x-ndjson")
+    data = {"answer": "", "empty": True, "citations": [], "data_used": {}, "cached": False}
+    async for ev in _8d_draft_events(body):
+        if ev["type"] == "result":
+            data = ev["data"]
+    return data
 
 
 # --------------------------------------------------------- CTP commit (UC3)
@@ -2039,51 +2182,98 @@ def ctp_digest_text(con, part_no, qty, customer_code, r, requested_date=None) ->
     return "\n".join(lines)
 
 
-@router.post("/ctp-commit")
-async def ai_ctp_commit(req: Request, user: dict = Depends(current_user)):
-    body = await req.json()
+CTP_SYSTEM = (
+    ANALYST + "You are the capable-to-promise sales co-pilot. From "
+    "the CTP analysis given, answer in this shape: the commit date "
+    "and the VERDICT exactly as given (never recompute whether it "
+    "beats or misses - state the given verdict verbatim in your "
+    "own words), the binding constraint in one sentence naming the "
+    "exact component and the incoming PO date, then list the "
+    "alternative date(s) with their risk (the computed commit date "
+    "= 'on time if the component lands as promised'; the safer "
+    "date = 'protects against a supplier slip'). If a conflict "
+    "check was run, state it plainly. Confident and concise - this "
+    "is being read out on a live phone call. Use only the figures "
+    "given.")
+
+
+def _ctp_detail(r: dict, part_no: str, qty: float, customer_code: str) -> str:
+    base = f"part: {part_no}, qty: {qty:.0f}, customer: {customer_code}"
+    b = r.get("binding")
+    if not b:
+        return base + ", material position strong - no shortage"
+    return base + f", short {b['short']:.0f} units of {b['part_no']}"
+
+
+async def _ctp_commit_events(body: dict):
+    """Single source of truth for /ctp-commit, streamed or buffered - the
+    buffered route below just drains this to its final `result` event."""
     part_no = body.get("part_no") or "TC-70210"
     qty = float(body.get("qty") or 250)
     customer_code = body.get("customer_code") or "MAR"
     expedite = bool(body.get("expedite"))
     golden = body.get("golden") or ("ctp-commit-expedite" if expedite else "ctp-commit")
-    if body.get("mode") == "cached":
-        c = cached_golden(golden)
-        if c:
-            return c
-    con = connect()
-    try:
-        r = compute_ctp(con, part_no, qty, expedite=expedite)
-        digest = ctp_digest_text(con, part_no, qty, customer_code, r,
-                                 requested_date=body.get("requested_date"))
-    finally:
-        con.close()
-    system = (ANALYST + "You are the capable-to-promise sales co-pilot. From "
-              "the CTP analysis given, answer in this shape: the commit date "
-              "and the VERDICT exactly as given (never recompute whether it "
-              "beats or misses - state the given verdict verbatim in your "
-              "own words), the binding constraint in one sentence naming the "
-              "exact component and the incoming PO date, then list the "
-              "alternative date(s) with their risk (the computed commit date "
-              "= 'on time if the component lands as promised'; the safer "
-              "date = 'protects against a supplier slip'). If a conflict "
-              "check was run, state it plainly. Confident and concise - this "
-              "is being read out on a live phone call. Use only the figures "
-              "given.")
     question = (body.get("query") or
                 f"Can we deliver {qty:.0f} x {part_no} by "
                 f"{body.get('requested_date') or 'the date requested'}?")
+    yield {"type": "start", "question": question}
+
+    if body.get("mode") == "cached":
+        c = cached_golden(golden)
+        if c:
+            yield {"type": "tool_call", "label": "Checking BOM, stock, work-centre "
+                                                  "load, open POs and contract priority"}
+            yield {"type": "tool_result", "ok": True,
+                   "label": "Capability position computed",
+                   "detail": _ctp_detail(c.get("ctp") or {}, part_no, qty, customer_code)}
+            yield {"type": "composing", "label": "Composing the commit answer"}
+            yield {"type": "result", "data": c}
+            yield {"type": "done"}
+            return
+
+    con = connect()
     try:
-        text = await predict_gen(system, "Live plant data (queried now from "
+        t0 = time.monotonic()
+        r = compute_ctp(con, part_no, qty, expedite=expedite)
+        digest = ctp_digest_text(con, part_no, qty, customer_code, r,
+                                 requested_date=body.get("requested_date"))
+        ms0 = int((time.monotonic() - t0) * 1000)
+    finally:
+        con.close()
+    yield {"type": "tool_call", "label": "Checking BOM, stock, work-centre "
+                                         "load, open POs and contract priority"}
+    yield {"type": "tool_result", "ok": True, "label": "Capability position computed",
+           "detail": _ctp_detail(r, part_no, qty, customer_code), "duration_ms": ms0}
+    try:
+        yield {"type": "composing", "label": "Composing the commit answer"}
+        text = await predict_gen(CTP_SYSTEM, "Live plant data (queried now from "
                                  "the ERP):\n" + digest + f"\n\nRequest: {question}")
-        return {"answer": clean(text), "citations": [], "digest": digest,
-                "ctp": r, "cached": False}
+        yield {"type": "result", "data": {"answer": clean(text), "citations": [],
+               "digest": digest, "ctp": r, "cached": False}}
     except Exception:
         c = cached_golden(golden)
         if c:
-            return c
-        return {"answer": "", "empty": True, "citations": [], "digest": digest,
-                "ctp": r, "cached": False}
+            yield {"type": "fallback", "message": "Showing a captured example "
+                                                   "while the live answer recovers."}
+            yield {"type": "result", "data": c}
+        else:
+            yield {"type": "result", "data": {"answer": "", "empty": True,
+                   "citations": [], "digest": digest, "ctp": r, "cached": False}}
+    yield {"type": "done"}
+
+
+@router.post("/ctp-commit")
+async def ai_ctp_commit(req: Request, user: dict = Depends(current_user)):
+    body = await req.json()
+    if body.get("stream"):
+        return StreamingResponse(
+            (json.dumps(ev) + "\n" async for ev in _ctp_commit_events(body)),
+            media_type="application/x-ndjson")
+    data = {"answer": "", "empty": True, "citations": [], "ctp": {}, "cached": False}
+    async for ev in _ctp_commit_events(body):
+        if ev["type"] == "result":
+            data = ev["data"]
+    return data
 
 
 # -------------------------------------------------------------- playbook
