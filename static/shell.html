@@ -52,6 +52,16 @@ header .who b{color:var(--ink)}
 .logout{font-size:12px;color:var(--muted);cursor:pointer;border:1px solid var(--line);
   border-radius:6px;padding:4px 10px}
 .logout:hover{color:var(--bad);border-color:var(--bad)}
+.ucbtn{font-size:11px;color:var(--muted);cursor:pointer;border:1px solid var(--line);
+  border-radius:6px;padding:4px 9px;letter-spacing:.02em;user-select:none}
+.ucbtn:hover{color:var(--ink);border-color:#C7C1B4}
+.uc-pop{position:absolute;right:26px;top:50px;width:270px;background:#fff;
+  border:1px solid var(--line);border-radius:8px;box-shadow:0 10px 30px rgba(0,0,0,.14);
+  z-index:50;display:none;padding:6px}
+.uc-pop .u{display:block;padding:8px 10px;border-radius:6px;cursor:pointer}
+.uc-pop .u:hover{background:var(--chip)}
+.uc-pop .u b{font-size:12px;display:block;color:var(--ink)}
+.uc-pop .u p{font-size:11px;color:var(--muted);margin-top:1px}
 .content{padding:22px 26px 34px;flex:1}
 footer{padding:10px 26px;font-size:10.5px;color:#9AA3AB;border-top:1px solid var(--line)}
 /* cards, kpis, tables */
@@ -195,11 +205,13 @@ tr.new-row td{animation:newrow 2.4s ease}
   <header>
     <h1>{{TITLE}}</h1>
     <div class="sp"></div>
+    <div class="ucbtn" id="ucbtn" title="Jump to a use-case demo flow">Use cases &#9662;</div>
     <div class="bell" id="bell">&#128276;<span class="dot" id="belldot" style="display:none"></span></div>
     <div class="who" id="who"></div>
     <div class="logout" id="logout">Sign out</div>
   </header>
   <div class="notif-pop" id="notifpop"></div>
+  <div class="uc-pop" id="ucpop"></div>
   <!-- app.js must load BEFORE the page body: page scripts call its helpers
        (api, table, aiPanel) at parse time. Its footer IIFE only touches
        header/nav elements, which are all above this line. -->

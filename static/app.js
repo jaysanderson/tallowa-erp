@@ -18,6 +18,14 @@ async function api(path, opts){
   return r.json();
 }
 
+/* ---------------- guided demo mode ----------------
+   Reached only via the "Use cases" quick-launch menu (?demo=1). Forces every
+   golden-backed AI call on the page straight to its verified cached answer -
+   correct and instant, no dependency on a live LLM/KB round-trip - so an SE
+   walking a customer through the scripted narrative never hits a slow or
+   flaky live call. Direct/manual navigation still calls live as normal. */
+const DEMO_MODE = new URLSearchParams(location.search).get('demo') === '1';
+
 /* ---------------- format ---------------- */
 function money(v){ return '$' + (v==null?0:v).toLocaleString('en-AU',{minimumFractionDigits:2,maximumFractionDigits:2}); }
 function n0(v){ return (v==null?0:v).toLocaleString('en-AU',{maximumFractionDigits:0}); }
@@ -405,7 +413,7 @@ function aiPanel(el, cfg){
   async function run(){
     const body = Object.assign({}, typeof cfg.body==='function'?cfg.body():cfg.body||{});
     if (qEl && qEl.value.trim()) body.query = qEl.value.trim();
-    if (cfg.golden) body.golden = cfg.golden;
+    if (cfg.golden){ body.golden = cfg.golden; if (DEMO_MODE) body.mode = 'cached'; }
     out.innerHTML = '<div class="shimmer"><span class="spin"></span>Working - querying live data and generating...</div>';
     const t0 = performance.now();
     try{
@@ -496,6 +504,19 @@ function closeModal(){ document.getElementById('modalbg').style.display='none'; 
       api('/api/notifications/read-all',{method:'POST'}).then(()=>{document.getElementById('belldot').style.display='none';});
     };
   }).catch(()=>{});
+  // use-case demo guide (SE navigation aid, not customer-facing chrome)
+  const ucbtn=document.getElementById('ucbtn'), ucpop=document.getElementById('ucpop');
+  if (ucbtn && ucpop) {
+    const USE_CASES=[
+      {href:'/quality?demo=1',      t:'1. Quality alert → 8D',   d:'FPY breach, root-cause suspects, contain the lot, auto-drafted 8D'},
+      {href:'/ap-invoices?demo=1',  t:'2. AP invoice auto-fix',        d:'Explain the error, find the shared cause, batch-fix & post'},
+      {href:'/ctp?demo=1',          t:'3. Capable-to-Promise',         d:'Real-time delivery commit, what-if expedite, dual approval'}
+    ];
+    ucpop.innerHTML = USE_CASES.map(u=>
+      '<a class="u" href="'+u.href+'"><b>'+esc(u.t)+'</b><p>'+esc(u.d)+'</p></a>').join('');
+    ucbtn.onclick=(e)=>{ e.stopPropagation(); ucpop.style.display = ucpop.style.display==='block' ? 'none' : 'block'; };
+    document.addEventListener('click', (e)=>{ if (!ucpop.contains(e.target) && e.target!==ucbtn) ucpop.style.display='none'; });
+  }
 })();
 
 /* path helper for detail pages */

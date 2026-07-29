@@ -82,7 +82,7 @@ document.getElementById('cgo').onclick = async ()=>{
   document.getElementById('commitCard').style.display='none';
   const t0 = performance.now();
   try{
-    const d = await api('/api/ai/ctp-commit', {method:'POST', body:{...lastReq, golden:'ctp-commit'}});
+    const d = await api('/api/ai/ctp-commit', {method:'POST', body:{...lastReq, golden:'ctp-commit', ...(DEMO_MODE?{mode:'cached'}:{})}});
     const ms = Math.round(performance.now()-t0);
     lastCtp = d;
     out.innerHTML = ctpCard(d);
@@ -116,7 +116,7 @@ document.getElementById('cwhatif').onclick = async ()=>{
   out.innerHTML = '<div class="shimmer"><span class="spin"></span>Re-running the scenario with the component expedited...</div>';
   const t0 = performance.now();
   try{
-    const d = await api('/api/ai/ctp-commit', {method:'POST', body:{...lastReq, expedite:true, golden:'ctp-commit-expedite'}});
+    const d = await api('/api/ai/ctp-commit', {method:'POST', body:{...lastReq, expedite:true, golden:'ctp-commit-expedite', ...(DEMO_MODE?{mode:'cached'}:{})}});
     const ms = Math.round(performance.now()-t0);
     lastExpedite = d;
     out.innerHTML = ctpCard(d);

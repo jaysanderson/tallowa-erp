@@ -101,7 +101,7 @@ async function loadDraft(){
     out.innerHTML = '<div class="shimmer"><span class="spin"></span>Drafting from the evidence and live containment status...</div>';
     const t0 = performance.now();
     try{
-      const d = await api('/api/ai/8d-draft', {method:'POST', body:{line:'A-2', golden:'8d-draft'}});
+      const d = await api('/api/ai/8d-draft', {method:'POST', body:{line:'A-2', golden:'8d-draft', ...(DEMO_MODE?{mode:'cached'}:{})}});
       const ms = Math.round(performance.now()-t0);
       d8Fields = d.fields;
       out.innerHTML =

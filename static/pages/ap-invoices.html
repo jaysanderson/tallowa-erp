@@ -74,7 +74,7 @@ async function explain(){
   wf.set('approve', 'pending', {authority:'AP clerk / finance'});
   const t0 = performance.now();
   try{
-    const d = await api('/api/ai/ap-error-explain', {method:'POST', body:{ap_no, golden:'ap-error-explain'}});
+    const d = await api('/api/ai/ap-error-explain', {method:'POST', body:{ap_no, golden:'ap-error-explain', ...(DEMO_MODE?{mode:'cached'}:{})}});
     const ms1 = Math.round(performance.now()-t0);
     let h = d.answer ? '<div class="ai-answer">'+md(d.answer)+'</div>' : '<div class="empty">No grounded answer.</div>';
     h += citesHtml(d.citations);
@@ -125,7 +125,7 @@ document.getElementById('apBatchGo').onclick = async ()=>{
   const out = document.getElementById('apBatchOut');
   out.innerHTML = '<div class="shimmer"><span class="spin"></span>Proposing the batch correction...</div>';
   const t0 = performance.now();
-  const d = await api('/api/ai/ap-batch-fix', {method:'POST', body:{ap_no, golden:'ap-batch-fix'}});
+  const d = await api('/api/ai/ap-batch-fix', {method:'POST', body:{ap_no, golden:'ap-batch-fix', ...(DEMO_MODE?{mode:'cached'}:{})}});
   const ms = Math.round(performance.now()-t0);
   out.innerHTML = (d.answer?'<div class="ai-answer">'+md(d.answer)+'</div>':'') + citesHtml(d.citations);
   const u = me();
