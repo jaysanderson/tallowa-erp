@@ -1,0 +1,4 @@
+END-OF-LINE TEST SUMMARY (fictional demo document)
+Run RUN-1092 - TC-30412 EPB-40, 470 built, 460 passed, 10 scrap.
+Current draw mean 2.21 A (window 1.9-2.6). Actuation mean 762 ms (<900).
+2 torque-retention rejects at re-test logged as DEF-0878.

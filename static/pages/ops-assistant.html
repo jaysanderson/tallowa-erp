@@ -1,0 +1,270 @@
+<div class="card">
+  <h3>Ask the live plant <span class="ai-tag">LIVE ERP &middot; MCP-GROUNDED</span></h3>
+  <div class="hint" style="margin-bottom:8px">The retrieval agent plans its own lookups over the live plant system through the Tallowa MCP server, queries it while you watch, checks the plant documents, then answers from exactly what it found. Every step is shown as it happens - tool name, arguments and all.</div>
+  <div class="row">
+    <input type="text" class="grow" id="q" placeholder="e.g. Which customer shipments are exposed to fastener lot WF-2261 and what is blocked on site?">
+    <button class="btn orange" id="go">Run</button>
+  </div>
+  <div class="chiprow">
+    <span class="qchip">Which customer shipments are exposed to fastener lot WF-2261, and what is blocked on site?</span>
+    <span class="qchip">Which orders are at risk of missing their promised dates and why?</span>
+    <span class="qchip">Which invoices are overdue and how much is outstanding?</span>
+    <span class="qchip">What is holding up production on line A-1 right now?</span>
+    <span class="qchip">Which machines are overdue for service or calibration?</span>
+    <span class="qchip">What parts are below reorder and is anything already on order?</span>
+  </div>
+</div>
+<div id="runout"></div>
+<style>
+/* live agent trace - scoped to the ops assistant page */
+.trace-wrap{background:var(--card);border:1px solid var(--line);border-radius:8px;
+  padding:14px 16px;margin-bottom:16px}
+.trace-head{display:flex;align-items:center;gap:10px;margin-bottom:2px}
+.trace-head h3{font-size:13.5px;margin:0}
+.trace-timer{margin-left:auto;font-size:11.5px;color:var(--muted);font-variant-numeric:tabular-nums;
+  display:flex;align-items:center;gap:6px}
+.trace-timer .dot{width:6px;height:6px;border-radius:50%;background:var(--orange);
+  animation:pulse 1.4s ease-in-out infinite}
+@keyframes pulse{0%,100%{opacity:1;transform:scale(1)}50%{opacity:.45;transform:scale(.72)}}
+.trace-sub{font-size:11px;color:var(--muted);margin:3px 0 9px;padding-bottom:9px;
+  border-bottom:1px solid var(--line)}
+.trace-sub a{color:var(--orange);font-weight:600}
+.trace-sub a:hover{text-decoration:underline}
+.trace{margin-top:2px;display:flex;flex-direction:column;gap:7px}
+.tstep{display:flex;align-items:flex-start;gap:10px;padding:8px 10px;border-radius:7px;
+  background:#FBFAF7;border:1px solid var(--line);font-size:12.6px;
+  animation:slidein .28s ease both}
+@keyframes slidein{from{opacity:0;transform:translateY(4px)}to{opacity:1;transform:translateY(0)}}
+.tstep.done{background:#fff}
+.tstep.err{background:#FCEEEC;border-color:#F0CCC5}
+.tstep .icon{flex-shrink:0;width:16px;height:16px;margin-top:1px;position:relative}
+.tstep .icon .ring{width:16px;height:16px;border-radius:50%;border:2px solid var(--line);
+  border-top-color:var(--orange);animation:sp .8s linear infinite}
+.tstep .icon .tick{width:16px;height:16px;border-radius:50%;background:var(--navy);
+  color:#fff;font-size:10px;line-height:16px;text-align:center;font-weight:700}
+.tstep.err .icon .tick{background:var(--bad)}
+.tstep .icon .dim{width:6px;height:6px;border-radius:50%;background:var(--muted);
+  margin:5px}
+.tstep .body{flex:1;min-width:0}
+.tstep .lbl{font-weight:600;color:var(--ink)}
+.tstep.err .lbl{color:var(--bad)}
+.tstep .det{color:var(--muted);font-size:11.5px;margin-top:1px;font-family:ui-monospace,Menlo,monospace}
+.mcpline{margin-top:4px;font-size:10.8px;color:var(--muted);display:flex;align-items:center;
+  gap:6px;font-family:ui-monospace,Menlo,monospace}
+.mcpline b{color:var(--ink);font-weight:600}
+.mcpline .b{font-size:8.5px;padding:1px 5px;letter-spacing:.06em}
+.tstep .dur{flex-shrink:0;font-size:10.5px;color:var(--muted);font-variant-numeric:tabular-nums;
+  margin-top:2px}
+.tstep.plan{background:#EDF3F8;border-color:#D6E3EE}
+.tstep.compose{background:#F3EFE3;border-color:#E7DCC0}
+.tstep.neutral{background:#FBFAF7}
+.tstep .icon .tick.neutral{background:var(--muted);font-size:14px;line-height:15px}
+.tstep .det.neutral-note{font-family:inherit;font-style:italic;color:var(--muted)}
+.fallback-note{font-size:11.5px;color:var(--warn);background:#FBF4E6;border:1px solid #F0DFB8;
+  border-radius:7px;padding:7px 10px;margin:2px 0}
+details.tracewrap{margin-top:4px}
+details.tracewrap summary{cursor:pointer;font-size:11.5px;color:var(--muted);
+  list-style:none;padding:4px 0;user-select:none}
+details.tracewrap summary::-webkit-details-marker{display:none}
+details.tracewrap summary:before{content:'\25B8 ';color:var(--orange);font-size:10px}
+details.tracewrap[open] summary:before{content:'\25BE ';}
+details.tracewrap summary:hover{color:var(--ink)}
+.ai-headline{font-size:15.5px;font-weight:600;line-height:1.4}
+.rich-group{margin:10px 0 14px}
+.rich-group .kpis{margin-bottom:10px}
+tr.urgent-row td{background:#FCF3F1}
+.amtbar{display:inline-block;width:56px;height:5px;background:#EAECEE;border-radius:3px;
+  overflow:hidden;margin-right:8px;vertical-align:1px}
+.amtbar span{display:block;height:100%;background:var(--orange)}
+</style>
+<script>
+const outEl=document.getElementById('runout');
+const TOOL_ICON_OK='data retrieved', TOOL_ICON_ERR='no result';
+
+// The Tallowa MCP server backs every lookup below - fetched once so the
+// trace header can state the real tool count instead of a vague claim.
+let MCP_INFO=null;
+(async function(){
+  try{ MCP_INFO=await api('/api/mcp/catalog'); }catch(e){}
+  const el=document.getElementById('mcpheadline');
+  if(el) el.innerHTML=mcpHeadlineHtml();
+})();
+function mcpHeadlineHtml(){
+  const n=MCP_INFO?MCP_INFO.tool_count:null;
+  return 'Retrieval agent - planning over the Tallowa MCP server'+
+    (n!=null?' ('+n+' tools exposed)':' (loading tool catalogue&hellip;)')+
+    ' &middot; <a href="/integrations">watch live MCP traffic &rarr;</a>';
+}
+function mcpLineHtml(ev){
+  if(!ev || !ev.tool) return '';
+  const tag=ev.mcp_kind==='prompt'?'MCP PROMPT':'MCP';
+  const route=ev.mcp_route?' <span>'+esc(ev.mcp_route)+'</span>':'';
+  return '<div class="mcpline"><span class="b b-navy">'+tag+'</span><b>'+esc(ev.tool)+'</b>'+route+'</div>';
+}
+
+function iconHtml(kind){
+  if (kind==='pending') return '<div class="icon"><div class="ring"></div></div>';
+  if (kind==='ok') return '<div class="icon"><div class="tick">&check;</div></div>';
+  if (kind==='err') return '<div class="icon"><div class="tick">&times;</div></div>';
+  if (kind==='neutral') return '<div class="icon"><div class="tick neutral">&bull;</div></div>';
+  return '<div class="icon"><div class="dim"></div></div>';
+}
+function fmtS(ms){ return (ms/1000).toFixed(1)+'s'; }
+
+function stepCard(cls, iconKind, label, detail, durMs){
+  return '<div class="tstep '+cls+'">'+iconHtml(iconKind)+
+    '<div class="body"><div class="lbl">'+esc(label)+'</div>'+
+    (detail?'<div class="det">'+esc(detail)+'</div>':'')+'</div>'+
+    (durMs!=null?'<div class="dur">'+fmtS(durMs)+'</div>':'')+'</div>';
+}
+
+async function run(){
+  const query=document.getElementById('q').value.trim();
+  if(!query) return;
+  const t0=Date.now();
+  outEl.innerHTML=
+    '<div class="trace-wrap" id="tw">'+
+      '<div class="trace-head"><h3>Watching the agent work</h3>'+
+        '<div class="trace-timer" id="timer"><span class="dot"></span><span id="timerlabel">Connecting to the retrieval agent&hellip;</span></div>'+
+      '</div>'+
+      '<div class="trace-sub" id="mcpheadline">'+mcpHeadlineHtml()+'</div>'+
+      '<div class="trace" id="trace"></div>'+
+    '</div>'+
+    '<div id="ans"></div>';
+  const trace=document.getElementById('trace'), ans=document.getElementById('ans');
+  const timerLabel=document.getElementById('timerlabel'), timerEl=document.getElementById('timer');
+  // Keyed by tool name, not a single variable: a cached-golden replay (and
+  // occasionally the live agent) can emit several tool_call events before
+  // their tool_result counterparts arrive, so more than one card can be
+  // "in flight" at once - a single shared reference left the earlier ones
+  // stuck spinning forever while a later result overwrote the wrong card.
+  let pendingByTool={}, composeCard=null, answered=false, stepCount=0;
+  let rowGroups=[], completedCardByTool={};
+
+  function setTimer(txt){ timerLabel.textContent=txt; }
+  function tick(){ if(!answered) setTimer('Working - '+((Date.now()-t0)/1000).toFixed(0)+'s elapsed'); }
+  const ticker=setInterval(tick, 1000);
+
+  function push(html){ stepCount++; trace.insertAdjacentHTML('beforeend', html); trace.scrollTop=trace.scrollHeight; }
+
+  try{
+    await streamNdjson('/api/ai/ops-assistant',{query, golden:'ops-assistant'},ev=>{
+      if(ev.type==='heartbeat'){ tick(); return; }
+
+      if(ev.type==='plan'){
+        setTimer('Planning the lookups…');
+        push(stepCard('plan','plan',ev.label||'Planning the lookups',ev.detail));
+      }
+      else if(ev.type==='tool_call'){
+        setTimer(ev.label+'…');
+        const id='tc'+stepCount;
+        push('<div class="tstep" id="'+id+'">'+iconHtml('pending')+
+          '<div class="body"><div class="lbl">'+esc(ev.label)+'</div>'+
+          (ev.detail?'<div class="det">'+esc(ev.detail)+'</div>':'')+
+          mcpLineHtml(ev)+'</div></div>');
+        (pendingByTool[ev.tool]=pendingByTool[ev.tool]||[]).push(document.getElementById(id));
+      }
+      else if(ev.type==='tool_result'){
+        const q=pendingByTool[ev.tool];
+        const card=(q && q.length) ? q.shift() : null;
+        const ok=ev.ok!==false;
+        // A denylisted-from-grounding catalogue call (e.g. a plain listing
+        // tool the honest gate never counts as real verification) gets its
+        // OWN neutral state, not a green tick - so the trace shows the
+        // gate's actual reasoning instead of looking like a contradiction
+        // when the answer later refuses ("it said 7 rows, then no data").
+        const neutral = ok && !!ev.non_substantive;
+        const cls = neutral ? 'neutral' : (ok ? 'done' : 'err');
+        const html=
+          iconHtml(neutral?'neutral':(ok?'ok':'err'))+
+          '<div class="body"><div class="lbl">'+esc(ev.label)+'</div>'+
+          (ev.detail?'<div class="det">'+esc(ev.detail)+'</div>':'')+
+          (neutral?'<div class="det neutral-note">Listed - not used for grounding</div>':'')+
+          mcpLineHtml(ev)+
+          '</div>'+
+          (ev.duration_ms!=null?'<div class="dur">'+fmtS(ev.duration_ms)+'</div>':'');
+        let el2;
+        if (card){ card.className='tstep '+cls; card.innerHTML=html; el2=card; }
+        else{ push('<div class="tstep '+cls+'">'+html+'</div>'); el2=trace.lastElementChild; }
+        if (ok){ completedCardByTool[ev.tool]=el2; if (neutral) el2.dataset.neutral='1'; }
+      }
+      else if(ev.type==='rows'){
+        // the real structured rows behind that tool call - collected for
+        // the rich answer panel, and used to enliven the trace card with an
+        // actual row count in place of the generic "data retrieved" detail.
+        rowGroups.push({tool:ev.tool, label:ev.label, rows:ev.rows});
+        const card=completedCardByTool[ev.tool];
+        if (card){
+          const det=card.querySelector('.det:not(.neutral-note)');
+          const n=ev.rows.length;
+          // A neutral (denylisted) card keeps saying "not used for
+          // grounding" - the row count is informative but must never read
+          // as "this counted as verification".
+          const note = card.dataset.neutral
+            ? n+' row'+(n===1?'':'s')+' listed'
+            : n+' row'+(n===1?'':'s')+' returned';
+          if (det) det.textContent=note; else card.querySelector('.body').insertAdjacentHTML('beforeend','<div class="det">'+esc(note)+'</div>');
+        }
+      }
+      else if(ev.type==='doc_search'){
+        setTimer('Reading plant documents…');
+        push(stepCard('done','ok',ev.label||'Reading plant documents',ev.detail));
+      }
+      else if(ev.type==='composing'){
+        setTimer((ev.label||'Composing the answer')+'…');
+        if (composeCard){ composeCard.querySelector('.lbl').textContent=ev.label||''; }
+        else{
+          const id='cc'+stepCount;
+          push('<div class="tstep compose" id="'+id+'">'+iconHtml('pending')+
+            '<div class="body"><div class="lbl">'+esc(ev.label||'')+'</div></div></div>');
+          composeCard=document.getElementById(id);
+        }
+      }
+      else if(ev.type==='fallback'){
+        answered=false; // a real cached trace follows - let it re-narrate
+        ans.insertAdjacentHTML('beforeend','<div class="fallback-note">'+esc(ev.message)+'</div>');
+      }
+      else if(ev.type==='answer'){
+        answered=true;
+        clearInterval(ticker);
+        if (composeCard){ composeCard.className='tstep done';
+          composeCard.innerHTML=iconHtml('ok')+'<div class="body"><div class="lbl">Grounded answer composed</div></div>'; }
+        setTimer('Done - '+((Date.now()-t0)/1000).toFixed(1)+'s');
+        const toolsUsed=(ev.tools||[]).map(t=>esc(t)).join(', ');
+        const docsUsed=(ev.documents||[]).length?' &middot; documents: '+ev.documents.map(esc).join('; '):'';
+        // The agent's prose is a summary written OVER rows the tool calls
+        // already returned - when we have those rows, lead with just the
+        // orienting first line (a real product answer shows the data, not
+        // a re-narration of it) and let the table carry the detail. A pure
+        // knowledge/no-rows answer (or the honest refusal) is untouched -
+        // full prose, no rich panel, exactly as before.
+        const richHtml=richAnswerHtml(rowGroups);
+        const text=ev.text||'';
+        const proseHtml = richHtml
+          ? '<div class="ai-headline">'+md(text.split('\n')[0].trim())+'</div>'
+          : md(text);
+        ans.insertAdjacentHTML('beforeend',
+          '<div class="ai-answer" style="border-top:1.5px solid var(--line);padding-top:12px;margin-top:2px">'+proseHtml+'</div>'+
+          richHtml+
+          (toolsUsed||docsUsed?'<div class="grounding">Grounded in live queries: '+toolsUsed+docsUsed+'</div>':'')+
+          '<details class="tracewrap"><summary>How this was answered ('+stepCount+' step(s))</summary></details>');
+        // move the trace panel inside the collapsible summary for a tidy finish
+        const tw=document.getElementById('tw');
+        const dsum=ans.querySelector('details.tracewrap');
+        if (tw && dsum){ dsum.appendChild(tw); }
+      }
+      else if(ev.type==='error'){
+        clearInterval(ticker);
+        setTimer('');
+        if (!answered) ans.insertAdjacentHTML('beforeend','<div class="empty">'+esc(ev.message)+'</div>');
+      }
+      else if(ev.type==='done'){
+        clearInterval(ticker);
+      }
+    });
+  }catch(e){ clearInterval(ticker); ans.innerHTML+='<div class="empty">Stream failed: '+esc(e.message)+'</div>'; }
+}
+document.getElementById('go').onclick=run;
+document.getElementById('q').addEventListener('keydown',e=>{if(e.key==='Enter')run();});
+document.querySelectorAll('.qchip').forEach(c=>c.onclick=()=>{document.getElementById('q').value=c.textContent;run();});
+</script>

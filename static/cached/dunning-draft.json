@@ -1,0 +1,11 @@
+{
+ "answer": "Subject: Payment Reminder for Overdue Invoice INV-5217\n\nDear Col Whitford,\n\nThis is a friendly reminder regarding the overdue invoice INV-5217 for $5,478.00, which was due on 11 July 2026. It is currently 10 days overdue. We kindly request that you process this payment at your earliest convenience.\n\nThank you for your attention to this matter.\n\nBest regards,  \nTallowa Components accounts receivable  \n\n---\n\nSubject: Payment Reminder for Overdue Invoice INV-5215\n\nDear Ida Larsen,\n\nWe hope this message finds you well. This is a reminder for the overdue invoice INV-5215, amounting to $24,447.50, which was due on 13 July 2026. It is now 8 days overdue. We would appreciate your prompt attention to this payment.\n\nThank you for your cooperation.\n\nBest regards,  \nTallowa Components accounts receivable  \n\n---\n\nSubject: Payment Reminder for Overdue Invoice INV-5218\n\nDear Theo Brandt,\n\nWe are writing to remind you of the overdue invoice INV-5218 for $22,792.00, due on 15 July 2026. It is currently 6 days overdue. We kindly ask that you arrange for payment at your earliest convenience.\n\nThank you for your understanding.\n\nBest regards,  \nTallowa Components accounts receivable",
+ "citations": [],
+ "data_used": {
+  "overdue": 3,
+  "value": 52717.5
+ },
+ "digest": "Overdue invoices:\n  INV-5217 AllBrake Distribution (contact Col Whitford): $5,478.00, due 2026-07-11, 10 days overdue, terms 30 days\n  INV-5215 Southbank Truck Group (contact Ida Larsen): $24,447.50, due 2026-07-13, 8 days overdue, terms 45 days\n  INV-5218 Marran Automotive (contact Theo Brandt): $22,792.00, due 2026-07-15, 6 days overdue, terms 30 days",
+ "latency_ms": 5851,
+ "cached": false
+}

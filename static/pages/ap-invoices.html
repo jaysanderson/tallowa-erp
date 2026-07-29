@@ -1,0 +1,185 @@
+<div class="kpis" id="kpis"></div>
+<div class="card">
+  <div id="wf"></div>
+</div>
+<div class="card">
+  <h3>Today's AP posting failures
+    <span class="sp"></span>
+    <select id="fstatus" style="width:150px"><option value="">All statuses</option>
+      <option value="failed">Failed</option><option value="posted">Posted</option></select>
+  </h3>
+  <div id="aptable"></div>
+</div>
+<div class="card">
+  <h3>Explain a failure<span class="sp"></span></h3>
+  <div class="row"><input type="text" class="grow" id="apno" placeholder="AP invoice number, e.g. AP-8801" value="AP-8801">
+    <button class="btn orange" id="apExplainGo">Explain</button></div>
+  <div class="chiprow" id="apchips"></div>
+  <div id="apExplainOut"></div>
+</div>
+<div class="card" id="similarCard" style="display:none">
+  <h3>Shared root cause<span class="sp"></span><button class="btn ghost" id="apBatchGo">Propose the batch fix</button></h3>
+  <div id="similarOut"></div>
+  <div id="apBatchOut"></div>
+  <div id="approveRow" style="margin-top:10px"></div>
+</div>
+<script>
+let curGroup = null;
+const wf = workflowStepper('wf', [
+  {key:'failures', label:'Posting failures'},
+  {key:'explain', label:'Explain the failure'},
+  {key:'sharedcause', label:'Find the shared cause'},
+  {key:'proposefix', label:'Propose the fix'},
+  {key:'approve', label:'Approve & post'},
+]);
+wf.set('approve', 'pending', {authority:'AP clerk / finance'});
+
+async function loadKpis(){
+  const rows = await api('/api/ap-invoices/');
+  const failed = rows.filter(r=>r.status==='failed');
+  const escalated = failed.filter(r=>!r.within_clerk_authority);
+  const glGroup = failed.filter(r=>r.error_code==='GL-4102');
+  kpi('kpis', [
+    {l:'Failed today', v:n0(failed.length), tone:failed.length?'warn':'ok'},
+    {l:'Share one root cause (GL-4102)', v:n0(glGroup.length)},
+    {l:'Needs escalation beyond AP clerk', v:n0(escalated.length), tone:escalated.length?'bad':'ok'},
+    {l:'Total value stuck', v:money(failed.reduce((a,r)=>a+r.amount,0))},
+  ]);
+  wf.set('failures', 'done', {detail: failed.length+' invoice(s) failed to post today, '+money(failed.reduce((a,r)=>a+r.amount,0))+' stuck.'});
+}
+async function loadTable(){
+  const status = document.getElementById('fstatus').value;
+  const rows = await api('/api/ap-invoices/?status='+status);
+  table('aptable', [
+    {k:'ap_no', label:'AP #', fmt:v=>'<span class="mono">'+v+'</span>'},
+    {k:'supplier_name', label:'Supplier'},
+    {k:'vendor_invoice_no', label:'Vendor inv #', fmt:v=>'<span class="mono">'+esc(v)+'</span>'},
+    {k:'amount', label:'Amount', cls:'num', fmt:money},
+    {k:'error_code', label:'Error code', fmt:v=>v?'<span class="mono">'+v+'</span>':'-'},
+    {k:'error_label', label:'What it means'},
+    {k:'within_clerk_authority', label:'Clerk can fix', fmt:v=>v?badge('ok'):badge('bad')},
+    {k:'status', label:'Status', fmt:badge},
+  ], rows);
+}
+document.getElementById('fstatus').onchange = loadTable;
+
+async function explain(){
+  const ap_no = document.getElementById('apno').value.trim();
+  const out = document.getElementById('apExplainOut');
+  out.innerHTML = '<div class="shimmer"><span class="spin"></span>Working - reading the invoice and the AP authorisation policy...</div>';
+  document.getElementById('similarCard').style.display = 'none';
+  wf.set('explain', 'current');
+  wf.set('sharedcause', 'pending');
+  wf.set('proposefix', 'pending');
+  wf.set('approve', 'pending', {authority:'AP clerk / finance'});
+  const t0 = performance.now();
+  try{
+    const d = await api('/api/ai/ap-error-explain', {method:'POST', body:{ap_no, golden:'ap-error-explain'}});
+    const ms1 = Math.round(performance.now()-t0);
+    let h = d.answer ? '<div class="ai-answer">'+md(d.answer)+'</div>' : '<div class="empty">No grounded answer.</div>';
+    h += citesHtml(d.citations);
+    out.innerHTML = h;
+    wf.set('explain', 'done', {
+      detail: 'Cause identified for '+ap_no+(d.data_used && d.data_used.error_code ? ' - error '+d.data_used.error_code : '')+'.',
+      trace: wfTrace('invoice record, AP authorisation policy', ms1),
+    });
+    wf.set('sharedcause', 'current');
+    const t1 = performance.now();
+    const sim = await api('/api/ap-invoices/'+ap_no+'/similar');
+    const ms2 = Math.round(performance.now()-t1);
+    curGroup = sim;
+    const sc = document.getElementById('similarCard');
+    if (sim.root_cause_group){
+      sc.style.display = 'block';
+      document.getElementById('similarOut').innerHTML =
+        '<div class="grounding">'+sim.count+' invoices share this cause, total '+money(sim.total_amount)+
+        ', approval limit '+money(sim.approval_limit)+' per invoice - all within the AP clerk\'s authority: <b>'+
+        (sim.all_within_clerk_authority?'yes':'no')+'</b></div>'+
+        '<div style="margin-top:8px">'+sim.similar.map(r=>'<span class="qchip" style="cursor:default">'+r.ap_no+' '+esc(r.supplier_name)+' '+money(r.amount)+'</span>').join('')+'</div>';
+      document.getElementById('apBatchOut').innerHTML='';
+      document.getElementById('approveRow').innerHTML='';
+      wf.set('sharedcause', 'done', {
+        detail: sim.count+' invoice(s) share this cause, '+money(sim.total_amount)+' total.',
+        trace: wfTrace("today's failed-invoice queue for a matching cause", ms2),
+      });
+    } else {
+      sc.style.display = 'block';
+      document.getElementById('similarOut').innerHTML = '<div class="empty">'+esc(sim.note||'No shared cause - this is a one-off.')+'</div>';
+      document.getElementById('apBatchOut').innerHTML=''; document.getElementById('approveRow').innerHTML='';
+      wf.set('sharedcause', 'done', {
+        detail: 'No shared cause found - this is a one-off.',
+        trace: wfTrace("today's failed-invoice queue for a matching cause", ms2),
+      });
+    }
+    wf.set('proposefix', 'current');
+  }catch(ex){
+    out.innerHTML = '<div class="empty">Could not generate: '+esc(ex.message)+'</div>';
+    wf.set('explain', 'blocked', {detail: ex.message});
+  }
+}
+document.getElementById('apExplainGo').onclick = explain;
+document.getElementById('apno').addEventListener('keydown', e=>{ if(e.key==='Enter') explain(); });
+
+document.getElementById('apBatchGo').onclick = async ()=>{
+  const ap_no = document.getElementById('apno').value.trim();
+  const out = document.getElementById('apBatchOut');
+  out.innerHTML = '<div class="shimmer"><span class="spin"></span>Proposing the batch correction...</div>';
+  const t0 = performance.now();
+  const d = await api('/api/ai/ap-batch-fix', {method:'POST', body:{ap_no, golden:'ap-batch-fix'}});
+  const ms = Math.round(performance.now()-t0);
+  out.innerHTML = (d.answer?'<div class="ai-answer">'+md(d.answer)+'</div>':'') + citesHtml(d.citations);
+  const u = me();
+  if (curGroup && curGroup.all_within_clerk_authority && ['finance','admin'].includes(u.role)){
+    wf.set('proposefix', 'done', {
+      detail: 'Fix proposed for '+curGroup.count+' invoice(s), within the AP clerk\'s authority.',
+      trace: wfTrace('vendor master, policy reference', ms),
+    });
+    wf.set('approve', 'current', {authority:'AP clerk / finance'});
+    document.getElementById('approveRow').innerHTML =
+      '<button class="btn" id="approveBatch">Approve &amp; post all '+curGroup.count+'</button>';
+    document.getElementById('approveBatch').onclick = async ()=>{
+      const t1 = performance.now();
+      const ap_nos = curGroup.similar.map(r=>r.ap_no);
+      const r = await api('/api/ap-invoices/batch-fix', {method:'POST', body:{ap_nos}});
+      const ms2 = Math.round(performance.now()-t1);
+      document.getElementById('approveRow').innerHTML =
+        '<div class="grounding">Posted '+r.posted+' invoices, '+money(r.total_amount)+' total, per policy '+r.policy_ref+'. Vendor master corrected - reload to see the queue clear.</div>';
+      wf.set('approve', 'done', {
+        detail: 'Posted '+r.posted+' invoice(s), '+money(r.total_amount)+' total, per policy '+r.policy_ref+'.',
+        trace: wfTrace('vendor master corrected, ledger posted', ms2),
+        authority:'AP clerk / finance',
+      });
+      loadKpis(); loadTable();
+    };
+  } else if (curGroup && curGroup.all_within_clerk_authority) {
+    document.getElementById('approveRow').innerHTML = '<div class="hint">Sign in as the AP clerk (ap@tallowacomponents.com.au) to approve and post this batch.</div>';
+    wf.set('proposefix', 'done', {
+      detail: 'Fix proposed for '+curGroup.count+' invoice(s), within the AP clerk\'s authority.',
+      trace: wfTrace('vendor master, policy reference', ms),
+    });
+    wf.set('approve', 'blocked', {detail:'Sign in as the AP clerk to approve and post this batch.', authority:'AP clerk / finance'});
+  } else if (curGroup && curGroup.root_cause_group) {
+    wf.set('proposefix', 'done', {
+      detail: 'Fix proposed - outside the AP clerk\'s authority limit.',
+      trace: wfTrace('vendor master, policy reference', ms),
+    });
+    wf.set('approve', 'blocked', {detail:'Escalation required - outside the AP clerk\'s authority limit.', authority:'Escalation'});
+  } else {
+    wf.set('proposefix', 'done', {
+      detail: 'Single-invoice fix proposed - no batch to post.',
+      trace: wfTrace('vendor master, policy reference', ms),
+    });
+    wf.set('approve', 'skipped', {detail:'Not applicable - one-off, no batch to approve.'});
+  }
+};
+
+(async function(){
+  await loadKpis(); await loadTable();
+  wf.set('explain', 'current');
+  document.getElementById('apchips').innerHTML =
+    ['AP-8801 (shares cause)','AP-8813 (one-off)','AP-8823 (escalation)'].map(c=>'<span class="qchip">'+c+'</span>').join('');
+  document.querySelectorAll('#apchips .qchip').forEach(c=>c.onclick=()=>{
+    document.getElementById('apno').value = c.textContent.split(' ')[0]; explain();
+  });
+})();
+</script>

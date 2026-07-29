@@ -1,0 +1,66 @@
+<div class="kpis" id="kpis"></div>
+<div id="briefing"></div>
+<div class="grid2">
+  <div class="card"><h3>Runs needing attention</h3><div id="attn"></div></div>
+  <div class="card"><h3>Open quality holds</h3><div id="holds"></div></div>
+</div>
+<div style="height:16px"></div>
+<div class="grid2">
+  <div class="card"><h3>Orders due in the next 7 days</h3><div id="due"></div></div>
+  <div class="card"><h3>Supplier delays &amp; overdue invoices</h3><div id="excep"></div></div>
+</div>
+<script>
+(async function(){
+  const d = await api('/api/dashboard/summary');
+  kpi('kpis', [
+    {l:'Open production runs', v:n0(d.open_runs)},
+    {l:'Line stoppages', v:n0(d.stopped_lines.length), tone:d.stopped_lines.length?'bad':'ok'},
+    {l:'Quality holds', v:n0(d.quality_holds), tone:d.quality_holds?'bad':'ok'},
+    {l:'Supplier delays', v:n0(d.late_supplier_pos.length), tone:d.late_supplier_pos.length?'warn':'ok'},
+    {l:'Throughput (7d units)', v:n0(d.throughput_7d)},
+    {l:'WIP value', v:money(d.wip_value)},
+    {l:'Margin (30d)', v:(d.margin_pct_30d==null?'-':d.margin_pct_30d+'%'), tone:'ok'},
+    {l:'Orders due (7d)', v:n0(d.orders_due_7d), tone:d.orders_due_7d?'warn':''},
+    {l:'Low-stock parts', v:n0(d.low_stock_parts), tone:d.low_stock_parts?'warn':'ok'},
+    {l:'First time through (30d)', v:(d.ftt_pct_30d==null?'-':d.ftt_pct_30d+'%')},
+    {l:'Customer PPM (30d)', v:n0(d.customer_ppm_30d), tone:d.customer_ppm_30d>50?'bad':'ok'},
+    {l:'Open defects', v:n0(d.open_defects), tone:d.open_defects?'warn':'ok'},
+  ]);
+
+  aiPanel('briefing', {endpoint:'/api/ai/briefing', title:'AI Daily Briefing',
+    tag:'GROUNDED AI', button:'Brief me', golden:'briefing', autorun:true});
+
+  const runs = await api('/api/runs/');
+  table('attn', [
+    {k:'run_no', label:'Run', fmt:(v,r)=>'<span class="mono">'+v+'</span>'},
+    {k:'part_no', label:'Part'},
+    {k:'line_code', label:'Line'},
+    {k:'status', label:'Status', fmt:badge},
+    {k:'customer_name', label:'Customer'},
+  ], runs.filter(r=>['quality_hold','in_progress','released'].includes(r.status)).slice(0,7),
+    {link:r=>'/production/'+r.run_no});
+
+  const holds = await api('/api/holds/?status=open');
+  table('holds', [
+    {k:'hold_no', label:'Hold', fmt:v=>'<span class="mono">'+v+'</span>'},
+    {k:'scope_label', label:'On', fmt:v=>'<span class="mono">'+esc(v)+'</span>'},
+    {k:'reason', label:'Reason', fmt:v=>esc(String(v).slice(0,90))+'...'},
+  ], holds, {link:()=>'/quality'});
+
+  const sla = await api('/api/reports/ship-date-performance');
+  table('due', [
+    {k:'so_no', label:'Order', fmt:v=>'<span class="mono">'+v+'</span>'},
+    {k:'customer_name', label:'Customer'},
+    {k:'promised_date', label:'Promised', fmt:dt},
+    {k:'status', label:'Status', fmt:badge},
+    {k:'open_runs', label:'Open runs', cls:'num'},
+  ], sla.open_orders, {link:r=>'/sales-orders/'+r.so_no});
+
+  const html=[];
+  d.late_supplier_pos.forEach(p=>html.push('<tr class="click" onclick="location.href=\'/purchase-orders\'"><td><span class="mono">'+p.po_no+'</span></td><td>'+esc(p.supplier)+'</td><td>'+badge('overdue')+' expected '+dt(p.expected_date)+'</td></tr>'));
+  d.overdue_invoices.forEach(i=>html.push('<tr class="click" onclick="location.href=\'/invoices\'"><td><span class="mono">'+i.inv_no+'</span></td><td>'+money(i.total)+'</td><td>'+badge('overdue')+'</td></tr>'));
+  document.getElementById('excep').innerHTML = html.length
+    ? '<table><thead><tr><th>Ref</th><th>Detail</th><th>State</th></tr></thead><tbody>'+html.join('')+'</tbody></table>'
+    : '<div class="empty">No exceptions right now.</div>';
+})();
+</script>

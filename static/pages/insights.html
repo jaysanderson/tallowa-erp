@@ -1,0 +1,38 @@
+<div class="hint" style="margin-bottom:14px">Each card queries the live ERP at the moment you run it, then writes a grounded analysis of exactly those figures. The grounding line under each answer shows what was read.</div>
+<div class="grid2">
+  <div id="c1"></div><div id="c2"></div>
+</div>
+<div class="grid2" style="margin-top:16px">
+  <div id="c3"></div><div id="c4"></div>
+</div>
+<div class="grid2" style="margin-top:16px">
+  <div id="c5"></div><div id="c6"></div>
+</div>
+<div class="grid2" style="margin-top:16px">
+  <div id="c7"></div><div id="c8"></div>
+</div>
+<div class="grid2" style="margin-top:16px">
+  <div id="c9"></div><div id="c10"></div>
+</div>
+<script>
+aiPanel('c1', {endpoint:'/api/ai/risk-watchlist', title:'Risk watchlist',
+  tag:'GROUNDED ANALYSIS', button:'Build', golden:'risk-watchlist'});
+aiPanel('c2', {endpoint:'/api/ai/sla-early-warning', title:'Ship-date early warning',
+  tag:'AGENTIC RANKING', button:'Scan orders', golden:'sla-early-warning'});
+aiPanel('c3', {endpoint:'/api/ai/margin-insight', title:'Margin insight',
+  tag:'GROUNDED ANALYSIS', button:'Analyse margin', golden:'margin-insight'});
+aiPanel('c4', {endpoint:'/api/ai/cost-exceptions', title:'Cost exceptions',
+  tag:'GROUNDED ANALYSIS', button:'Find exceptions', golden:'cost-exceptions'});
+aiPanel('c5', {endpoint:'/api/ai/compliance-readiness', title:'Audit readiness',
+  tag:'GROUNDED AI - CITED', button:'Assess readiness', golden:'compliance-readiness'});
+aiPanel('c6', {endpoint:'/api/ai/exec-summary', title:'Executive summary',
+  tag:'GROUNDED DRAFT', button:'Write summary', golden:'exec-summary'});
+aiPanel('c7', {endpoint:'/api/ai/lost-quotes', title:'Lost quotes',
+  tag:'GROUNDED ANALYSIS', button:'Analyse losses', golden:'lost-quotes'});
+aiPanel('c8', {endpoint:'/api/ai/finance-exceptions', title:'Finance exceptions',
+  tag:'GROUNDED ANALYSIS', button:'Review', golden:'finance-exceptions'});
+aiPanel('c9', {endpoint:'/api/ai/fault-root-cause', title:'Defect Pareto & root cause',
+  tag:'GROUNDED AI - CITED', button:'Analyse defects', golden:'fault-root-cause'});
+aiPanel('c10', {endpoint:'/api/ai/lot-trace', title:'Containment exposure (lot WF-2261)',
+  tag:'GROUNDED AI - CITED', button:'Trace & narrate', body:{lot:'WF-2261'}, golden:'lot-trace'});
+</script>

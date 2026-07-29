@@ -1,0 +1,108 @@
+{
+ "answer": "Commit date: 2026-07-29. VERDICT: the commit date 2026-07-29 BEATS the requested date by 3 day(s) of 2026-08-01. The binding constraint is TC-13080 Busbar insulation moulding, short 170 units, resolved by incoming PO-2252 (2600 units), pulled in (expedited) to 2026-07-27. \n\nAlternative date: 2026-08-01, with risk of supplier slip. A conflict check was run, revealing insufficient headroom on the incoming PO after covering this order and others, resulting in a shortfall of 570 units. \n\nIn summary, while we can commit to the delivery by 2026-07-29, the situation is tight due to the conflict with other orders.",
+ "citations": [],
+ "digest": "CTP request: 250 x TC-70210 (HV busbar set - plated).\nToday is 2026-07-21.\nRequested delivery date: 2026-08-01. VERDICT (computed, state exactly this - do not recompute or re-derive it yourself): the commit date 2026-07-29 BEATS the requested date by 3 day(s) of 2026-08-01.\nCustomer: Marran Automotive - oem account, PPM target 25. OEM contract - firm-window delivery commitments carry contractual weight.\nMaterial position:\n  TC-13080 Busbar insulation moulding: need 1000, on hand 830, SHORT 170\nBINDING CONSTRAINT: TC-13080 Busbar insulation moulding - short 170 units.\n  Resolved by incoming PO-2252 (2600 units), pulled in (expedited) to 2026-07-27.\nHistorical production rate for TC-70210: 310 units/day from completed run history.\nProduction lead time for this quantity: 1 day(s), plus 1 day to receive and release incoming material.\nCOMPUTED COMMIT DATE: 2026-07-29.\nSafer alternative date (buffer against supplier slip): 2026-08-01.\nOther near-term order(s) also drawing on this same incoming shipment: SO-3433 (Marran Automotive, 430 units still to build, 1720 units of this component still needed); SO-3434 (Korrawin Assemblies, 320 units still to build, 1280 units of this component still needed). Combined remaining need 3000 units.\nHeadroom on the incoming PO after covering this order and the others: -570 units - A CONFLICT - not enough to cover both.",
+ "ctp": {
+  "part": {
+   "id": 6,
+   "part_no": "TC-70210",
+   "name": "HV busbar set - plated",
+   "family": "emobility",
+   "category": "finished",
+   "uom": "ea",
+   "std_cost": 18.7,
+   "price": 36.0,
+   "reorder_point": 0.0,
+   "reorder_qty": 0.0,
+   "traceable": 1,
+   "safety_critical": 1,
+   "preferred_supplier_id": null
+  },
+  "bom": [
+   {
+    "qty_per": 1.6,
+    "part_no": "TC-12010",
+    "name": "Copper strip C11000 0.8mm",
+    "cid": 24
+   },
+   {
+    "qty_per": 4.0,
+    "part_no": "TC-13080",
+    "name": "Busbar insulation moulding",
+    "cid": 20
+   },
+   {
+    "qty_per": 0.03,
+    "part_no": "TC-90030",
+    "name": "Export carton set",
+    "cid": 28
+   }
+  ],
+  "shortages": [
+   {
+    "part_no": "TC-13080",
+    "name": "Busbar insulation moulding",
+    "cid": 20,
+    "need": 1000.0,
+    "on_hand": 830.0,
+    "short": 170.0,
+    "po": {
+     "po_no": "PO-2252",
+     "expected_date": "2026-08-01",
+     "qty": 2600.0
+    }
+   }
+  ],
+  "binding": {
+   "part_no": "TC-13080",
+   "name": "Busbar insulation moulding",
+   "cid": 20,
+   "need": 1000.0,
+   "on_hand": 830.0,
+   "short": 170.0,
+   "po": {
+    "po_no": "PO-2252",
+    "expected_date": "2026-08-01",
+    "qty": 2600.0
+   }
+  },
+  "prod_days": 1,
+  "receive_buffer_days": 1,
+  "rate_per_day": 310.0,
+  "commit_date": "2026-07-29",
+  "alt_safe_date": "2026-08-01",
+  "conflict": {
+   "other_orders": [
+    {
+     "id": 13,
+     "run_no": "RUN-1100",
+     "qty_planned": 820.0,
+     "qty_good": 390.0,
+     "so_no": "SO-3433",
+     "customer_name": "Marran Automotive",
+     "qty_per": 4.0,
+     "remaining_need": 1720.0
+    },
+    {
+     "id": 18,
+     "run_no": "RUN-1105",
+     "qty_planned": 320.0,
+     "qty_good": 0.0,
+     "so_no": "SO-3434",
+     "customer_name": "Korrawin Assemblies",
+     "qty_per": 4.0,
+     "remaining_need": 1280.0
+    }
+   ],
+   "remaining_need_other_orders": 3000.0,
+   "po_qty": 2600.0,
+   "headroom": -570.0,
+   "conflict": true,
+   "applied_po_date": "2026-07-27",
+   "original_po_date": "2026-08-01"
+  },
+  "expedite": true,
+  "expedite_days": 5
+ },
+ "cached": false
+}

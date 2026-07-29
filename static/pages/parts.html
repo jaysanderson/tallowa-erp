@@ -1,0 +1,35 @@
+<div class="card">
+  <h3>Parts &amp; materials
+    <span class="sp"></span>
+    <select id="ffam" style="width:150px"><option value="">All families</option>
+      <option>braking</option><option>chassis</option><option>emobility</option>
+      <option>raw</option></select>
+    <select id="fcat" style="width:150px"><option value="">All categories</option>
+      <option>finished</option><option>component</option><option>raw</option></select>
+  </h3>
+  <div id="rows"></div>
+</div>
+<div id="reorder"></div>
+<script>
+async function load(){
+  const f=document.getElementById('ffam').value, c=document.getElementById('fcat').value;
+  const rows=await api('/api/parts/?family='+f+'&category='+c);
+  table('rows', [
+    {k:'part_no', label:'Part', fmt:v=>'<span class="mono">'+v+'</span>'},
+    {k:'name', label:'Description'},
+    {k:'family', label:'Family'},
+    {k:'category', label:'Category'},
+    {k:'safety_critical', label:'SC', fmt:v=>v?'<span class="b b-navy">SC</span>':''},
+    {k:'traceable', label:'Lot ctrl', fmt:v=>v?'<span class="b b-blue">lot</span>':''},
+    {k:'on_hand', label:'On hand', cls:'num', fmt:(v,r)=>r.low_stock?'<b style="color:#B3352B">'+n0(v)+'</b>':n0(v)},
+    {k:'quarantined', label:'Quarantined', cls:'num', fmt:v=>v?'<b style="color:#B3352B">'+n0(v)+'</b>':'0'},
+    {k:'reorder_point', label:'Reorder pt', cls:'num', fmt:n0},
+    {k:'std_cost', label:'Std cost', cls:'num', fmt:money},
+    {k:'supplier_name', label:'Preferred supplier'},
+  ], rows, {link:r=>'/parts/'+r.part_no});
+}
+['ffam','fcat'].forEach(id=>document.getElementById(id).onchange=load);
+load();
+aiPanel('reorder', {endpoint:'/api/ai/demand-reorder', title:'Reorder recommendations',
+  tag:'AGENTIC RANKING', button:'Recommend purchasing actions', golden:'demand-reorder'});
+</script>

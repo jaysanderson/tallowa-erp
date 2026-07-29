@@ -1,0 +1,6 @@
+CERTIFICATE OF ANALYSIS - Warrigal Fasteners (fictional demo document)
+Lot WF-2261 - Output fastener M8x1 thread rolled, qty 40,000
+Material: class 10.9, cert ref WF-MT-9917
+Thread rolling parameters: recorded per SQA-STD (see supplier record)
+Hardness sample: PASS. Dimensional sample: PASS.
+Note: thread-rolling profile trace NOT ATTACHED at receipt - flagged in 8D.

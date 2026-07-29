@@ -1,0 +1,67 @@
+<div class="grid2">
+  <div class="card"><h3>Customer PPM (90 days)</h3><div id="ppm"></div></div>
+  <div class="card"><h3>Scrap &amp; rework by family</h3><div id="scrap"></div></div>
+</div>
+<div style="height:16px"></div>
+<div class="card"><h3>Margin by part</h3><div id="margin"></div></div>
+<div class="grid2">
+  <div class="card"><h3>Ship-date performance (fulfilled orders)</h3><div id="sla"></div></div>
+  <div class="card"><h3>Labour hours logged</h3><div id="util"></div></div>
+</div>
+<div style="height:16px"></div>
+<div class="card"><h3>Weekly throughput by line</h3><div id="tp"></div></div>
+<div id="ai1"></div>
+<script>
+(async function(){
+  const ppm=await api('/api/reports/customer-ppm');
+  table('ppm', [
+    {k:'name', label:'Customer'},
+    {k:'shipped', label:'Shipped', cls:'num', fmt:n0},
+    {k:'defect_units', label:'Defect units', cls:'num', fmt:n0},
+    {k:'ppm', label:'PPM', cls:'num', fmt:(v,r)=>'<b style="color:'+(r.within_target?'#2E7D4F':'#B3352B')+'">'+n0(v)+'</b>'},
+    {k:'ppm_target', label:'Target', cls:'num', fmt:n0},
+    {k:'within_target', label:'', fmt:v=>v?'<span class="b b-green">within</span>':'<span class="b b-red">over target</span>'},
+  ], ppm);
+  const scrap=await api('/api/reports/scrap');
+  table('scrap', [
+    {k:'family', label:'Family'},
+    {k:'scrap_units', label:'Scrap units', cls:'num', fmt:n0},
+    {k:'scrap_cost', label:'Scrap cost', cls:'num', fmt:money},
+    {k:'scrap_pct', label:'Scrap %', cls:'num', fmt:v=>'<span style="color:'+(v>1.8?'#B3352B':'#2E7D4F')+'">'+v+'%</span>'},
+  ], scrap);
+  const margin=await api('/api/reports/margin');
+  table('margin', [
+    {k:'part_no', label:'Part', fmt:v=>'<span class="mono">'+v+'</span>'},
+    {k:'name', label:'Description'},
+    {k:'family', label:'Family'},
+    {k:'units', label:'Units', cls:'num', fmt:n0},
+    {k:'revenue', label:'Revenue', cls:'num', fmt:money},
+    {k:'std_cost', label:'Std cost', cls:'num', fmt:money},
+    {k:'margin_pct', label:'Margin', cls:'num', fmt:v=>'<b style="color:'+(v<15?'#B3352B':'#2E7D4F')+'">'+v+'%</b>'},
+  ], margin);
+  const sla=await api('/api/reports/ship-date-performance');
+  table('sla', [
+    {k:'so_no', label:'Order', fmt:v=>'<span class="mono">'+v+'</span>'},
+    {k:'customer_name', label:'Customer'},
+    {k:'promised_date', label:'Promised', fmt:dt},
+    {k:'first_ship', label:'First ship', fmt:dt},
+    {k:'on_time', label:'', fmt:v=>v?'<span class="b b-green">on time</span>':'<span class="b b-red">late</span>'},
+  ], sla.history);
+  const util=await api('/api/reports/utilisation');
+  table('util', [
+    {k:'name', label:'Operator'},
+    {k:'line', label:'Line'},
+    {k:'shift', label:'Shift'},
+    {k:'hours_logged', label:'Hours', cls:'num', fmt:v=>v.toFixed(1)},
+  ], util.filter(u=>u.hours_logged>0));
+  const tp=await api('/api/reports/throughput');
+  table('tp', [
+    {k:'line', label:'Line'},
+    {k:'week', label:'Week'},
+    {k:'good', label:'Good units', cls:'num', fmt:n0},
+    {k:'scrap', label:'Scrap', cls:'num', fmt:n0},
+  ], tp);
+})();
+aiPanel('ai1', {endpoint:'/api/ai/time-anomaly', title:'Labour time anomalies',
+  tag:'GROUNDED ANALYSIS', button:'Scan time entries', golden:'time-anomaly'});
+</script>

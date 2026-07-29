@@ -1,0 +1,55 @@
+<div class="card">
+  <h3>Ask the plant's knowledge <span class="ai-tag">CITED ANSWERS</span></h3>
+  <div class="hint" style="margin-bottom:8px">Answers come only from Bellbrook's controlled documents - the quality manual, procedures, standard work instructions, safety data sheets and customer requirements - with the sources cited underneath.</div>
+  <div class="row">
+    <input type="text" class="grow" id="q" placeholder="e.g. What torque does the EPB output fastener take, and what happens on an out-of-window reading?">
+    <button class="btn orange" id="go">Ask</button>
+  </div>
+  <div class="chiprow">
+    <span class="qchip">What torque does the EPB-40 output fastener take and what happens if a reading is out of window?</span>
+    <span class="qchip">What must happen within 24 hours of a customer escape?</span>
+    <span class="qchip">What PPE do I need in the plating aisle?</span>
+    <span class="qchip">When is a use-as-is disposition allowed?</span>
+    <span class="qchip">What does an overdue calibration mean for parts we already accepted?</span>
+    <span class="qchip">What are the Cpk requirements for safety-critical characteristics?</span>
+  </div>
+  <div id="out"></div>
+</div>
+<div class="card">
+  <h3>Search the document set <span class="ai-tag">SEMANTIC</span></h3>
+  <div class="row">
+    <input type="text" class="grow" id="fq" placeholder="Find by meaning, e.g. 'what to do when a bolt keeps coming loose'">
+    <button class="btn" id="fgo">Search</button>
+  </div>
+  <div id="fout"></div>
+</div>
+<script>
+const out=document.getElementById('out');
+async function ask(){
+  const query=document.getElementById('q').value.trim();
+  if(!query) return;
+  out.innerHTML='<div class="shimmer"><span class="spin"></span>Retrieving and answering from the plant documents...</div>';
+  try{
+    const d=await api('/api/ai/ask',{method:'POST',body:{query, golden:'ask'}});
+    if(d.empty||!d.answer){ out.innerHTML='<div class="empty">That is not covered in the plant documents - the assistant does not guess.</div>'; return; }
+    out.innerHTML='<div class="ai-answer">'+md(d.answer)+'</div>'+citesHtml(d.citations)+
+      '<div class="grounding">'+(d.citations||[]).length+' source extract(s) cited'+(d.latency_ms?' &middot; '+(d.latency_ms/1000).toFixed(1)+'s':'')+(d.cached?' &middot; cached result':'')+'</div>';
+  }catch(e){ out.innerHTML='<div class="empty">Could not answer: '+esc(e.message)+'</div>'; }
+}
+document.getElementById('go').onclick=ask;
+document.getElementById('q').addEventListener('keydown',e=>{if(e.key==='Enter')ask();});
+document.querySelectorAll('.qchip').forEach(c=>c.onclick=()=>{document.getElementById('q').value=c.textContent;ask();});
+
+const fout=document.getElementById('fout');
+async function find(){
+  const query=document.getElementById('fq').value.trim();
+  if(!query) return;
+  fout.innerHTML='<div class="shimmer"><span class="spin"></span>Searching...</div>';
+  const d=await api('/api/ai/find',{method:'POST',body:{query}});
+  if(!d.hits.length){ fout.innerHTML='<div class="empty">No matching passages.</div>'; return; }
+  fout.innerHTML='<table><thead><tr><th>Document</th><th>Passage</th><th class="num">Relevance</th></tr></thead><tbody>'+
+    d.hits.map(h=>'<tr><td style="white-space:nowrap"><b>'+esc(h.title)+'</b></td><td class="hint">'+esc(h.snippet)+'</td><td class="num">'+(h.score||0).toFixed(2)+'</td></tr>').join('')+'</tbody></table>';
+}
+document.getElementById('fgo').onclick=find;
+document.getElementById('fq').addEventListener('keydown',e=>{if(e.key==='Enter')find();});
+</script>

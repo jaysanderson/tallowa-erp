@@ -1,0 +1,78 @@
+<div class="card"><h3 id="title">Run</h3><div class="kpis" id="kpis"></div>
+  <div id="meta"></div></div>
+<div class="grid2">
+  <div class="card"><h3>Materials &amp; lots consumed</h3><div id="mats"></div></div>
+  <div class="card"><h3>Finished lots &amp; holds</h3><div id="outputs"></div></div>
+</div>
+<div style="height:16px"></div>
+<div class="grid2">
+  <div class="card"><h3>Defects on this run</h3><div id="defs"></div></div>
+  <div class="card"><h3>Labour</h3><div id="time"></div></div>
+</div>
+<h2 class="sect">Assistants for this run</h2>
+<div class="grid2">
+  <div id="ai1"></div><div id="ai2"></div>
+</div>
+<div class="grid2" style="margin-top:16px">
+  <div id="ai3"></div><div id="ai4"></div>
+</div>
+<script>
+(async function(){
+  const run_no = pathPart(1);
+  const r = await api('/api/runs/'+run_no);
+  document.getElementById('title').innerHTML = '<span class="mono">'+r.run_no+'</span>&nbsp; '+
+    esc(r.part_no+' - '+r.part_name)+' &nbsp;'+badge(r.status)+
+    (r.safety_critical?' &nbsp;<span class="b b-navy">SAFETY CRITICAL</span>':'');
+  kpi('kpis', [
+    {l:'Planned', v:n0(r.qty_planned)},
+    {l:'Good', v:n0(r.qty_good)},
+    {l:'Scrap', v:n0(r.qty_scrap), tone:r.qty_scrap?'warn':''},
+    {l:'Line', v:r.line_code||'-'},
+    {l:'Std cost', v:money(r.std_cost)},
+    {l:'Actual cost', v:money(r.actual_cost), tone:(r.actual_cost>r.std_cost*1.02?'warn':'')},
+    {l:'Labour (min)', v:n0(r.labour_minutes)},
+  ]);
+  document.getElementById('meta').innerHTML =
+    '<div class="hint">Customer: <b>'+esc(r.customer_name||'stock build')+'</b>'+
+    (r.so_no?' &middot; order <a class="mono" style="color:#B04E12" href="/sales-orders/'+r.so_no+'">'+r.so_no+'</a>':'')+
+    ' &middot; scheduled '+dt(r.scheduled_start)+' to '+dt(r.scheduled_end)+
+    (r.notes?'<br>Notes: '+esc(r.notes):'')+'</div>'+
+    (r.holds.length? r.holds.map(h=>'<div class="hint" style="color:#9A2B22;margin-top:6px"><b>'+h.hold_no+'</b> ['+h.status+'] '+esc(h.reason)+'</div>').join(''):'');
+
+  table('mats', [
+    {k:'part_no', label:'Part', fmt:(v,x)=>'<span class="mono">'+v+'</span> '+esc(x.part_name)},
+    {k:'qty', label:'Qty', cls:'num', fmt:n0},
+    {k:'lot_no', label:'Lot', fmt:v=>v?'<a class="mono" style="color:#B04E12" href="/traceability?lot='+v+'">'+v+'</a>':'-'},
+    {k:'supplier_name', label:'Supplier'},
+  ], r.materials);
+
+  const outs = [];
+  r.finished_lots.forEach(f=>outs.push('<tr><td><a class="mono" style="color:#B04E12" href="/traceability?lot='+f.lot_no+'">'+f.lot_no+'</a></td><td class="num">'+n0(f.qty_produced)+'</td><td class="num">'+n0(f.qty_shipped)+'</td><td>'+badge(f.status)+'</td></tr>'));
+  document.getElementById('outputs').innerHTML = outs.length
+    ? '<table><thead><tr><th>Finished lot</th><th class="num">Produced</th><th class="num">Shipped</th><th>Status</th></tr></thead><tbody>'+outs.join('')+'</tbody></table>'
+    : '<div class="empty">No finished lots yet - the run has not completed.</div>';
+
+  table('defs', [
+    {k:'defect_no', label:'Defect', fmt:v=>'<span class="mono">'+v+'</span>'},
+    {k:'code', label:'Code'},
+    {k:'severity', label:'Severity', fmt:badge},
+    {k:'qty', label:'Qty', cls:'num', fmt:n0},
+    {k:'status', label:'State', fmt:badge},
+  ], r.defects, {empty:'No defects recorded on this run.'});
+
+  table('time', [
+    {k:'operator_name', label:'Operator'},
+    {k:'station', label:'Station'},
+    {k:'minutes', label:'Minutes', cls:'num', fmt:n0},
+  ], r.time_entries, {empty:'No time entries yet.'});
+
+  aiPanel('ai1', {endpoint:'/api/ai/parts-kit', title:'Kitting instruction',
+    tag:'GROUNDED AI', button:'Build kit list', body:{run_no}, golden:'parts-kit'});
+  aiPanel('ai2', {endpoint:'/api/ai/similar-runs', title:'Similar past runs',
+    tag:'AGENTIC RANKING', button:'Compare history', body:{run_no}, golden:'similar-runs'});
+  aiPanel('ai3', {endpoint:'/api/ai/run-timeline', title:'Run timeline',
+    tag:'GROUNDED AI', button:'Narrate timeline', body:{run_no}, golden:'run-timeline'});
+  aiPanel('ai4', {endpoint:'/api/ai/completion-note', title:'Completion note',
+    tag:'GROUNDED DRAFT', button:'Draft note', body:{run_no}, golden:'completion-note'});
+})();
+</script>

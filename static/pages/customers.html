@@ -1,0 +1,17 @@
+<div class="card"><h3>Customers</h3><div id="rows"></div></div>
+<script>
+(async function(){
+  const rows=await api('/api/customers/');
+  table('rows', [
+    {k:'code', label:'Code', fmt:v=>'<span class="mono">'+v+'</span>'},
+    {k:'name', label:'Customer'},
+    {k:'type', label:'Type', fmt:v=>'<span class="b b-'+(v==='oem'?'blue':'grey')+'">'+v.toUpperCase()+'</span>'},
+    {k:'city', label:'City', fmt:(v,r)=>esc(v+', '+r.state)},
+    {k:'contact_name', label:'Contact'},
+    {k:'payment_terms', label:'Terms', cls:'num', fmt:v=>v+' d'},
+    {k:'open_orders', label:'Open orders', cls:'num'},
+    {k:'outstanding', label:'Outstanding', cls:'num', fmt:money},
+    {k:'ppm_30d', label:'PPM (30d)', cls:'num', fmt:(v,r)=>'<b style="color:'+(v>r.ppm_target?'#B3352B':'#2E7D4F')+'">'+n0(v)+'</b> / '+n0(r.ppm_target)},
+  ], rows, {link:r=>'/customers/'+r.id});
+})();
+</script>

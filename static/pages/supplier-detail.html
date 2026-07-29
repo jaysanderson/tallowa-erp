@@ -1,0 +1,35 @@
+<div class="card"><h3 id="title">Supplier</h3><div id="meta" class="hint"></div></div>
+<div class="grid2">
+  <div class="card"><h3>Purchase orders</h3><div id="pos"></div></div>
+  <div class="card"><h3>Lots received</h3><div id="lots"></div></div>
+</div>
+<div style="height:16px"></div>
+<div class="card"><h3>Parts we buy from them</h3><div id="parts"></div></div>
+<script>
+(async function(){
+  const code=pathPart(1);
+  const s=await api('/api/suppliers/'+code);
+  document.getElementById('title').innerHTML=esc(s.name)+' <span class="mono hint">'+s.code+'</span>';
+  document.getElementById('meta').innerHTML='Category <b>'+esc(s.category)+'</b> &middot; '+esc(s.city+', '+s.state)+' &middot; contact '+esc(s.contact_name)+
+    ' &middot; rating '+s.rating.toFixed(1)+' &middot; on-time '+s.on_time_pct.toFixed(1)+'% &middot; PPM <b style="color:'+(s.ppm>350?'#B3352B':'#2E7D4F')+'">'+n0(s.ppm)+'</b>'+
+    (s.ppm>350?' <span class="b b-red">above 350 threshold - quality development plan per SQA-STD</span>':'');
+  table('pos', [
+    {k:'po_no', label:'PO', fmt:v=>'<span class="mono">'+v+'</span>'},
+    {k:'status', label:'Status', fmt:badge},
+    {k:'ordered_on', label:'Ordered', fmt:dt},
+    {k:'expected_date', label:'Expected', fmt:dt},
+    {k:'total', label:'Total', cls:'num', fmt:money},
+  ], s.purchase_orders, {link:r=>'/purchase-orders/'+r.po_no});
+  table('lots', [
+    {k:'lot_no', label:'Lot', fmt:v=>'<a class="mono" style="color:#B04E12" href="/traceability?lot='+v+'">'+v+'</a>'},
+    {k:'part_no', label:'Part', fmt:v=>'<span class="mono">'+v+'</span>'},
+    {k:'received_on', label:'Received', fmt:dt},
+    {k:'qty_remaining', label:'Remaining', cls:'num', fmt:(v,r)=>n0(v)+' / '+n0(r.qty_received)},
+    {k:'status', label:'Status', fmt:badge},
+  ], s.lots);
+  table('parts', [
+    {k:'part_no', label:'Part', fmt:v=>'<a class="mono" style="color:#B04E12" href="/parts/'+v+'">'+v+'</a>'},
+    {k:'name', label:'Description'},
+  ], s.parts, {empty:'No parts preferenced to this supplier.'});
+})();
+</script>

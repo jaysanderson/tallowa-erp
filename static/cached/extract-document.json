@@ -1,0 +1,30 @@
+{
+ "draft": {
+  "supplier_name": "Warrigal Fasteners Pty Ltd",
+  "items": [
+   {
+    "part_no": "TC-31215",
+    "description": "output fastener M8x1 thread rolled, class 10.9",
+    "qty": 24000,
+    "unit_price": 0.37,
+    "matched_part": true,
+    "catalogue_name": "Output fastener M8x1 - thread rolled"
+   },
+   {
+    "part_no": "TC-31210",
+    "description": "case screw M5 single-use",
+    "qty": 60000,
+    "unit_price": 0.085,
+    "matched_part": true,
+    "catalogue_name": "Case screw M5 (single use)"
+   }
+  ],
+  "currency": "AUD",
+  "notes": "Delivery 10 working days from order.",
+  "matched_supplier": {
+   "code": "WFA",
+   "name": "Warrigal Fasteners"
+  }
+ },
+ "cached": false
+}

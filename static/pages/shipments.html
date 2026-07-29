@@ -1,0 +1,17 @@
+<div class="card"><h3>Shipments</h3><div id="rows"></div></div>
+<script>
+(async function(){
+  const rows=await api('/api/shipments/');
+  table('rows', [
+    {k:'shp_no', label:'Shipment', fmt:v=>'<span class="mono">'+v+'</span>'},
+    {k:'customer_name', label:'Customer'},
+    {k:'ship_to_name', label:'To'},
+    {k:'so_no', label:'Order', fmt:v=>v?'<a class="mono" style="color:#B04E12" href="/sales-orders/'+v+'">'+v+'</a>':'-'},
+    {k:'status', label:'Status', fmt:badge},
+    {k:'shipped_on', label:'Shipped', fmt:dt},
+    {k:'carrier', label:'Carrier'},
+    {k:'asn_ref', label:'ASN', fmt:v=>'<span class="mono">'+esc(v)+'</span>'},
+    {k:'lines', label:'Contents', fmt:v=>(v||[]).map(l=>'<span class="mono">'+l.part_no+'</span> x'+n0(l.qty)+' (lot <a class="mono" style="color:#B04E12" href="/traceability?lot='+l.lot_no+'">'+l.lot_no+'</a>)').join('<br>')},
+  ], rows);
+})();
+</script>

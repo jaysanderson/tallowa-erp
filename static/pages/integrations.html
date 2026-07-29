@@ -1,0 +1,108 @@
+<div class="card">
+  <h3>Tallowa MCP server <span class="b b-navy">LIVE</span></h3>
+  <div class="hint" style="margin-bottom:10px">Every integration that reads or acts on plant data - including the retrieval agent behind the Ops Assistant, AI Insights and Build Playbooks - goes through this one interface. No integration, human or agent, touches the database directly; every call carries the caller's own bearer token, so the same role and permissions apply as in the web app.</div>
+  <table style="max-width:640px">
+    <tbody>
+      <tr><td style="width:150px;color:var(--muted)">Endpoint</td><td class="mono">POST /mcp</td></tr>
+      <tr><td style="color:var(--muted)">Transport</td><td id="i-transport">-</td></tr>
+      <tr><td style="color:var(--muted)">Auth model</td><td id="i-auth">-</td></tr>
+      <tr><td style="color:var(--muted)">Tools exposed</td><td id="i-toolcount">-</td></tr>
+    </tbody>
+  </table>
+</div>
+
+<div class="card">
+  <h3>Tool catalogue<span class="sp"></span>
+    <input type="text" id="filter" placeholder="Filter tools&hellip;" style="width:220px;font-size:12px;padding:5px 9px">
+  </h3>
+  <div class="hint" style="margin-bottom:8px">Auto-derived from the plant API itself - every tool below is generated from a live REST route, never hand-maintained, so it can never drift from what the platform actually does.</div>
+  <div id="catalogue" style="max-height:360px;overflow-y:auto"></div>
+</div>
+
+<div class="card">
+  <h3><span class="livedot"></span>Recent MCP calls<span class="sp"></span>
+    <span class="hint" id="callsmeta"></span>
+  </h3>
+  <div class="hint" style="margin-bottom:8px">Live feed of tool dispatches through the server above - this is the actual traffic behind every agent answer, not a simulation.</div>
+  <div id="calls"></div>
+</div>
+
+<script>
+let CATALOGUE_TOOLS=[];
+let SEEN_CALL_KEYS=new Set();
+
+function paramsOf(t){
+  const p=(t.input_schema&&t.input_schema.properties)||{};
+  const names=[];
+  if(p.path&&p.path.properties) names.push(...Object.keys(p.path.properties));
+  if(p.query&&p.query.properties) names.push(...Object.keys(p.query.properties));
+  if(p.body) names.push('body');
+  return names;
+}
+
+function renderCatalogue(filterText){
+  const f=(filterText||'').trim().toLowerCase();
+  const rows=CATALOGUE_TOOLS.filter(t=>!f ||
+    t.name.toLowerCase().includes(f) || (t.description||'').toLowerCase().includes(f));
+  table('catalogue', [
+    {k:'name', label:'Tool', fmt:v=>'<span class="mono">'+esc(v)+'</span>'},
+    {k:'method', label:'Route', fmt:(v,r)=>'<span class="b b-grey" style="margin-right:6px">'+esc(v)+'</span><span class="mono">'+esc(r.path)+'</span>'},
+    {k:'description', label:'Description', fmt:v=>esc(v||'-')},
+    {k:'input_schema', label:'Args', fmt:(v,r)=>{const p=paramsOf(r); return p.length?'<span class="mono">'+esc(p.join(', '))+'</span>':'-';}},
+  ], rows, {empty:'No tools match that filter.'});
+}
+
+function fmtAgo(ts){
+  const s=Math.max(0, Math.round(Date.now()/1000-ts));
+  if(s<60) return s+'s ago';
+  if(s<3600) return Math.floor(s/60)+'m ago';
+  return Math.floor(s/3600)+'h ago';
+}
+
+function renderCalls(calls){
+  const rows=calls.map(c=>{
+    const key=c.ts+'|'+c.tool+'|'+c.caller;
+    const isNew=!SEEN_CALL_KEYS.has(key);
+    SEEN_CALL_KEYS.add(key);
+    return Object.assign({}, c, {_new:isNew});
+  });
+  table('calls', [
+    {k:'ts', label:'When', fmt:v=>fmtAgo(v)},
+    {k:'tool', label:'Tool', fmt:v=>'<span class="mono">'+esc(v)+'</span>'},
+    {k:'method', label:'Route', fmt:(v,r)=>v?'<span class="b b-grey" style="margin-right:6px">'+esc(v)+'</span><span class="mono">'+esc(r.path||'')+'</span>':'-'},
+    {k:'caller', label:'Caller'},
+    {k:'source', label:'Via', fmt:v=>'<span class="b '+(v==='retrieval agent'?'b-orange':'b-blue')+'">'+esc(v||'-')+'</span>'},
+    {k:'args', label:'Arguments', fmt:v=>v?'<span class="mono">'+esc(v)+'</span>':'-'},
+    {k:'duration_ms', label:'Duration', cls:'num', fmt:v=>v!=null?v+' ms':'-'},
+    {k:'row_count', label:'Rows', cls:'num', fmt:v=>v!=null?v:'-'},
+    {k:'ok', label:'Status', fmt:v=>v?'<span class="b b-green">OK</span>':'<span class="b b-red">FAILED</span>'},
+  ], rows, {empty:'No calls recorded yet.'});
+  // flash the rows that are new since the last poll (skipped on first paint,
+  // where SEEN_CALL_KEYS starts empty and everything would otherwise flash)
+  if (window._callsPainted){
+    const trs=document.querySelectorAll('#calls tbody tr');
+    rows.forEach((r,i)=>{ if(r._new && trs[i]) trs[i].classList.add('new-row'); });
+  }
+  window._callsPainted=true;
+}
+
+async function loadCatalogue(){
+  const c=await api('/api/mcp/catalog');
+  document.getElementById('i-transport').textContent=c.transport;
+  document.getElementById('i-auth').textContent=c.auth;
+  document.getElementById('i-toolcount').textContent=c.tool_count+' tools, auto-derived from the plant API';
+  CATALOGUE_TOOLS=c.tools;
+  renderCatalogue(document.getElementById('filter').value);
+}
+
+async function loadCalls(){
+  const r=await api('/api/mcp/calls?limit=30');
+  document.getElementById('callsmeta').textContent='polling every 4s';
+  renderCalls(r.calls);
+}
+
+document.getElementById('filter').addEventListener('input', e=>renderCatalogue(e.target.value));
+loadCatalogue();
+loadCalls();
+setInterval(loadCalls, 4000);
+</script>

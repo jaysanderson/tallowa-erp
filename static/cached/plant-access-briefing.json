@@ -1,0 +1,69 @@
+{
+ "answer": "### Access Briefing for Contractor Visiting Line A-1 Assembly & Test - Braking\n\n**Date:** [Insert today's date]\n\n#### PPE Requirements\n- **Mandatory PPE:** \n  - Safety glasses\n  - Safety footwear (or footwear covers for short escorted visits)\n  - Hi-vis vest\n- **Area-Specific PPE:** Follow the PPE matrix; your escort will provide any additional required PPE.\n\n#### Access Protocol\n- **Sign In:** Register at the main reception and wear the issued pass visibly at all times.\n- **Escorted Access:** You must be escorted at all times while on the production floor.\n\n#### Walking Areas\n- **Permitted Routes:** You may only walk on the green walkways designated for pedestrians.\n- **No Entry Zones:** The plating aisle and furnace aisle are off-limits for visitors. \n\n#### Off-Limits Areas\n- **Furnace Entry:** This area requires confined-space work protocols, including a permit, gas test, and attendant.\n- **Plating Line:** No access without proper isolation and safety measures.\n\n#### Today's Specific Hazards\n- **Running Equipment:** The following equipment is currently operational:\n  - ASM-01 EPB assembly rig\n  - TST-01 EPB end-of-line test rig 1\n  - TST-02 EPB end-of-line test rig 2\n- **Quality Holds:** Be aware of RUN-1101 TC-30412 x490, which is under a quality hold. Ensure you do not interfere with this run.\n\n#### Safety Non-Negotiables\n- **Lockout-Tagout (LOTO):** Follow LOTO-01 for any intervention past a guard.\n- **No Phone Use:** Phones are not permitted inside the line envelope; use marked refuge bays for calls.\n- **Photography:** Only permitted with a signed permit from the site manager.\n\n#### Additional Notes\n- Always notify the line lead and affected operators before any work begins.\n- Ensure that you do not reach past guards, into presses, or under raised tooling for any reason.\n\nPlease adhere strictly to these guidelines to ensure your safety and compliance while on site.",
+ "citations": [
+  {
+   "rid": "08d093874303486eaebedcbc5fe75c67",
+   "file": "safety-ppe-matrix.md",
+   "title": "safety-ppe-matrix.md",
+   "score": 0.5570924878120422,
+   "snippet": "   ## Visitors and contractors   Escorted visitors: glasses, footwear covers or safety footwear, hi-vis.   Contractors follow the contractor induction plus the area matrix; a plant access   briefing is issued before first entry (SEC-04). \n"
+  },
+  {
+   "rid": "10a08b2869c34c998186ba17c5836994",
+   "file": "sec-04-plant-access.md",
+   "title": "sec-04-plant-access.md",
+   "score": 0.4741898477077484,
+   "snippet": "# SEC-04 Plant Access and Visitor Briefing (Rev C)     Issued to every visitor and contractor before first entry to the Bellbrook   production floor.     ## Access basics   - Sign in at main reception; wear the issued pass visibly at all times. \n"
+  },
+  {
+   "rid": "101e3493b4c3481fb5892f77990c851c",
+   "file": "sop-line-startup.md",
+   "title": "sop-line-startup.md",
+   "score": 0.03173859417438507,
+   "snippet": "   ## Safety non-negotiables   - Lockout-tagout per LOTO-01 for any intervention past a guard.   - No phone use inside the line envelope.   - PPE per the area matrix at all times; visitors only with an access briefing. \n"
+  },
+  {
+   "rid": "10a08b2869c34c998186ba17c5836994",
+   "file": "sec-04-plant-access.md",
+   "title": "sec-04-plant-access.md",
+   "score": 0.009974921122193336,
+   "snippet": " - Visitors are escorted at all times. Contractors may work unescorted only within   their permit area after contractor induction.   - Pedestrian routes are the green walkways; never step outside them on the floor. \n"
+  },
+  {
+   "rid": "0676871aa3a8470991793bbaad8325b9",
+   "file": "safety-loto-01.md",
+   "title": "safety-loto-01.md",
+   "score": 0.0029464049730449915,
+   "snippet": "   ## The six steps   1. Notify the line lead and affected operators.   2. Shut down by the normal stop.   3. Isolate every energy source at its isolation point.   4. Apply your personal lock and tag - one lock per person, every person on the   job locks on. Group lock boxes are "
+  },
+  {
+   "rid": "101e3493b4c3481fb5892f77990c851c",
+   "file": "sop-line-startup.md",
+   "title": "sop-line-startup.md",
+   "score": 0.002683439990505576,
+   "snippet": "   ## Handover   Outgoing line leads record: parts completed, stoppages over 5 minutes with cause,   open defects raised, tooling concerns. The incoming lead reads the log before   their walk.       "
+  },
+  {
+   "rid": "10a08b2869c34c998186ba17c5836994",
+   "file": "sec-04-plant-access.md",
+   "title": "sec-04-plant-access.md",
+   "score": 0.0013458604225888848,
+   "snippet": "   ## Contractor energy work   Any work on plant equipment requires a permit to work plus LOTO-01 lockout with   the contractor's own locks. The permit issuer walks the isolation with the   contractor before work starts. \n"
+  },
+  {
+   "rid": "10a08b2869c34c998186ba17c5836994",
+   "file": "sec-04-plant-access.md",
+   "title": "sec-04-plant-access.md",
+   "score": 0.000954731716774404,
+   "snippet": "   ## Rules on the floor   - Photography only with a signed permit from the site manager.   - No phone use inside line envelopes; take calls in the marked refuge bays.   - Never reach past a guard, into a press, or under raised tooling - for any reason. \n"
+  }
+ ],
+ "data_used": {
+  "line": "A-1",
+  "runs": 3,
+  "crew": 5
+ },
+ "digest": "Line A-1 Assembly & Test - Braking - status running\nRuns on this line: RUN-1101 TC-30412 x490 [quality_hold/high] for Ellandra Motors; RUN-1106 TC-30412 x480 [planned/high] for Ellandra Motors; RUN-1108 TC-30470 x420 [planned/normal] for AllBrake Distribution\nCrew: Tom Ishida (line_lead, night), Grace Udo (operator, day), Dev Sharma (material_handler, afternoon), Eve Sutton (quality_inspector, night), Milo Frost (operator, afternoon)\nEquipment attention: ASM-01 EPB assembly rig status=running; TST-01 EPB end-of-line test rig 1 status=running; TST-02 EPB end-of-line test rig 2 status=running",
+ "latency_ms": 5858,
+ "cached": false
+}

@@ -1,0 +1,19 @@
+<div class="card"><h3>People &amp; certifications</h3><div id="rows"></div></div>
+<div id="gap"></div>
+<script>
+(async function(){
+  const rows=await api('/api/operators/');
+  table('rows', [
+    {k:'emp_no', label:'ID', fmt:v=>'<span class="mono">'+v+'</span>'},
+    {k:'name', label:'Name'},
+    {k:'role', label:'Role', fmt:v=>esc(String(v).replace(/_/g,' '))},
+    {k:'line_code', label:'Line'},
+    {k:'shift', label:'Shift'},
+    {k:'status', label:'Status', fmt:badge},
+    {k:'certs', label:'Certifications', fmt:v=>(v||[]).map(c=>
+      '<span class="b b-'+(c.state==='expired'?'red':c.state==='expiring'?'amber':'green')+'" title="'+esc(c.name)+' expires '+c.expires_on+'">'+c.code+'</span>').join(' ')||'-'},
+  ], rows);
+})();
+aiPanel('gap', {endpoint:'/api/ai/skill-gap', title:'Certification gap analysis',
+  tag:'GROUNDED ANALYSIS', button:'Analyse coverage', golden:'skill-gap'});
+</script>

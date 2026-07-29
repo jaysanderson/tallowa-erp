@@ -1,0 +1,70 @@
+{
+ "answer": "Based on the provided data, here is the ranked list of confidence-labelled suspects for the FPY breach on run RUN-1111:\n\n1. **Material (HIGH)**\n   - **Identifiers**: Raw lot KP-7742 (CoA CoA-KP-7742)\n   - **Percentage of affected units**: 71 per cent (47 of 66 defect units)\n   - **Reason for ranking**: The majority of defects (3 events) are directly linked to the first use of this raw lot, with all defects (DEF-0900, DEF-0901, DEF-0902) occurring after the changeover to KP-7742. This strong correlation indicates a significant likelihood that the material is a primary contributor to the defects.\n\n2. **Equipment (MEDIUM)**\n   - **Identifiers**: Machine INJ-01 (overdue maintenance)\n   - **Percentage of affected units**: 29 per cent (19 of 66 defect units)\n   - **Reason for ranking**: While there are defects associated with this machine (DEF-0903, DEF-0904), the percentage of affected units is lower compared to the material. The overdue maintenance suggests potential tooling wear, which could contribute to the defects, but it is less directly correlated than the material issue.\n\n3. **Shift (LOW)**\n   - **Identifiers**: Night-shift supervisor Ravi Fenn (TC1027)\n   - **Percentage of affected units**: Not directly quantifiable, but defect events were 1.5x more frequent in the first half of the window.\n   - **Reason for ranking**: The shift change coincided with the material changeover, but the evidence does not strongly support that the shift itself caused the defects. The correlation is more suggestive than definitive, making it a lower priority.\n\n### Next Containment Action\nQuarantine remaining suspect stock everywhere it sits, including raw store, line-side, work-in-progress, finished store, and packed-not-shipped (D3 containment action).",
+ "citations": [
+  {
+   "rid": "3710dc0020b3495b9b5e6f89fb231071",
+   "file": "sqa-std-supplier-quality.md",
+   "title": "sqa-std-supplier-quality.md",
+   "score": 0.0006337125087156892,
+   "snippet": " - Delivery: 98 per cent on-time-in-full against the confirmed date.   - A missed level: quality development plan; two consecutive missed quarters:   new-business hold.     ## Nonconformance and escapes   On a confirmed lot escape the supplier: responds with containment within 24"
+  },
+  {
+   "rid": "c3ae59dd72724bab884488b83e2559a1",
+   "file": "qp-8d-containment.md",
+   "title": "qp-8d-containment.md",
+   "score": 0.00025714197545312345,
+   "snippet": " - D4 (root cause verified): within 10 working days.   - D5-D6 (corrective action selected and implemented): within 20 working days.   - D7-D8 (prevent recurrence, close): within 30 working days.     ## Containment (D3) for a suspect lot   1. Quarantine remaining suspect stock ev"
+  },
+  {
+   "rid": "cdecd24b614b48dca05da65ca903a983",
+   "file": "qm-04-nonconforming-product.md",
+   "title": "qm-04-nonconforming-product.md",
+   "score": 0.00011147904297104105,
+   "snippet": " - Rework - to a nominated station with a rework instruction; reworked parts   re-enter inspection at the gate that raised the defect. Rework on a safety-critical   characteristic additionally requires 100 per cent re-test. \n"
+  },
+  {
+   "rid": "cdecd24b614b48dca05da65ca903a983",
+   "file": "qm-04-nonconforming-product.md",
+   "title": "qm-04-nonconforming-product.md",
+   "score": 8.750300185056403e-05,
+   "snippet": "   ## Identification and quarantine   1. Tag the item or container with a red NONCONFORMING tag carrying the defect number.   2. Move it to quarantine (warehouse zone Q1). Line-side quarantine is not permitted   beyond the end of the shift. \n"
+  },
+  {
+   "rid": "a5fe80773c924ee49b41604a36a9b883",
+   "file": "qm-07-traceability.md",
+   "title": "qm-07-traceability.md",
+   "score": 5.829126530443318e-05,
+   "snippet": " 2. Raw lots issue to production FIFO; a lot is never split across unlabelled bins.   3. Every production run records which raw lots it consumed, at issue time, by scan.   No scan, no issue.   4. Each completed run produces one or more finished lots (lot numbers TC-A-xxxx   for a"
+  },
+  {
+   "rid": "c3ae59dd72724bab884488b83e2559a1",
+   "file": "qp-8d-containment.md",
+   "title": "qp-8d-containment.md",
+   "score": 2.507159297238104e-05,
+   "snippet": " 2. Run the QM-07 trace. Backward: bound the suspect window by raw lot and run.   Forward: list every finished lot, shipment, customer purchase order and   receiving plant affected.   3. Sort or certify everything inside the window: unshipped stock is 100 per cent   inspected bef"
+  },
+  {
+   "rid": "a5fe80773c924ee49b41604a36a9b883",
+   "file": "qm-07-traceability.md",
+   "title": "qm-07-traceability.md",
+   "score": 2.507159297238104e-05,
+   "snippet": " 5. Packing records which finished lots went into which shipment, against the   customer purchase order line. Shipping labels carry the lot number.     ## Trace requests   - Backward trace (finished lot to inputs): raw-material lots consumed with   supplier, receipt date and CoA;"
+  },
+  {
+   "rid": "cdecd24b614b48dca05da65ca903a983",
+   "file": "qm-04-nonconforming-product.md",
+   "title": "qm-04-nonconforming-product.md",
+   "score": 2.0623421733034775e-05,
+   "snippet": " 3. Record the defect in the defect register the same shift: part number, lot number,   production run, machine, station, description, severity (minor, major, critical).     ## Disposition   A quality inspector assigns one of four dispositions: \n"
+  }
+ ],
+ "data_used": {
+  "line": "A-2",
+  "run_no": "RUN-1111",
+  "fpy": 84.3,
+  "total_defect_units": 66.0
+ },
+ "digest": "Run RUN-1111 - TC-70230 HV connector housing on line A-2: FPY 84.3 per cent against the 96.5 per cent target (354 good, 66 scrap of 420 built). 5 defect events, 66 units affected.\nSUSPECT (material): raw lot KP-7742 (CoA CoA-KP-7742, received 2026-07-19) - FIRST USE on this line, no prior run history to compare against. 47 of 66 defect units (71 per cent) trace to this lot: DEF-0900 Void/short-shot on HV connector housing after resin lot changeover to KP-7742 at 02:10; DEF-0901 Void/short-shot on HV connector housing - same changeover batch, moisture-sensitive resin suspect; DEF-0902 Void/short-shot on HV connector housing - third event since changeover, same failure mode\nSUSPECT (equipment): INJ-01 - preventive maintenance OVERDUE by 5 day(s) (due 2026-07-16, last service 2026-04-17). 19 of 66 defect units (29 per cent) recorded against this machine: DEF-0903 HV connector housing wall thickness drifting outside tolerance - consistent with tooling wear on an ; DEF-0904 HV connector housing wall thickness drift - second event, same machine\nSUSPECT (shift): defect events ran 1.5x more frequent in the first half of the window (3 events, 47 units, 02:20-03:50) than the second half (2 events, 19 units, 03:50-05:20). Night-shift note on Ravi Fenn (TC1027), line lead for A-2: First night rostered as night-shift supervisor on A-2 - covering for T. Okonkwo (leave). Onboarded to the supervisor role three days ago.\nOverlaps to weigh: the shift change and the material changeover happened close together in this window - the material and equipment evidence should be checked before the shift factor is treated as more than a contributing correlation.",
+ "latency_ms": 4918,
+ "cached": false
+}

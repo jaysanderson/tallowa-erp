@@ -1,0 +1,11 @@
+{
+ "answer": "Subject: Quotation for TC-30412 Electric Park Brake Actuators\n\nDear Ellandra Motors Team,\n\nPlease find below the quotation for your recent request for additional parts.\n\n**Quotation Details:**\n\n- **Customer:** Ellandra Motors (OEM)\n- **Payment Terms:** 30 days\n- **Validity:** 30 days\n- **Lead Time:** Delivery in 4 weeks\n\n**Line Items:**\n\n1. **TC-30412 EPB-40 Electric Park Brake Actuator**  \n   - Quantity: 300  \n   - Contract Price: $168.00  \n   - Subtotal: $50,400.00  \n\n**Subtotal:** $50,400.00  \n**GST (10%):** $5,040.00  \n**Total:** $55,440.00  \n\nPlease let us know if you require any further information or adjustments to this quotation.\n\nBest regards,\n\n[Your Name]  \n[Your Position]  \nTallowa Components",
+ "citations": [],
+ "data_used": {
+  "customer": "Ellandra Motors",
+  "priced_parts": 3
+ },
+ "digest": "Customer: Ellandra Motors (oem), payment terms 30 days. GST rate 10%. All amounts AUD.\nContract part prices: TC-30412 EPB-40 electric park brake actuator = $168.00 (their ref ELL-88412-B, std cost $92.40); TC-30450 Caliper bracket - machined = $39.50 (their ref ELL-88450-A, std cost $21.10); TC-30470 Park brake cable kit = $22.40 (their ref ELL-88470-C, std cost $11.20)\nOrder history: SO-3437 [approved] $88,704.00; SO-3430 [in_production] $88,704.00; SO-3415 [fulfilled] $57,387.00; SO-3411 [fulfilled] $73,920.00\nRequest: They want 300 more TC-30412 actuators delivered in 4 weeks - quote it.",
+ "latency_ms": 5455,
+ "cached": false
+}

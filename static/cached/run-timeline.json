@@ -1,0 +1,13 @@
+{
+ "answer": "### Production Run Timeline for RUN-1101\n\n- **Creation Date**: RUN-1101 initiated for TC-30412 EPB-40 electric park brake actuator, quantity 490, for customer Ellandra Motors, under sales order SO-3430.\n  \n- **Release Date**: Production commenced on line A-1.\n\n- **Start Date**: Production officially started on [insert start date if available].\n\n- **Material Consumption**: \n  - TC-31020: 214 units consumed.\n  - TC-31110: 214 units consumed from lot LK-0912 (Larkspur Electronics).\n  - TC-31215: 214 units consumed from lot WF-2261 (Warrigal Fasteners).\n  - TC-31210: 856 units consumed from lot WF-2260 (Warrigal Fasteners).\n\n- **Quality Hold**: Status updated to quality_hold due to concerns with output fastener lot WF-2261 (QP-8D containment).\n\n- **Defect Report**: \n  - DEF-0894 [critical/open]: Two units identified with torque retention issues; further testing revealed two additional loosened joints, suspecting thread rolling on lot WF-2261.\n  \n- **Minor Defect Report**: \n  - DEF-0897 [minor/closed]: Eight units recorded low grease dose of 2.05 g, indicating a low side drift on the doser.\n\n- **Hold Status**: \n  - HLD-0145 (open): Run held at station 60 pending containment disposition due to consumption of suspect lot WF-2261.\n\n- **Completion State**: \n  - Total good units: 210.\n  - Total scrap units: 4.\n  - Actual cost incurred: $19,773.60 against standard cost of $45,276.00.\n\nThis timeline outlines the critical events and issues encountered during the production run RUN-1101, highlighting the need for immediate attention to the quality hold and defects identified.",
+ "citations": [],
+ "data_used": {
+  "run": "RUN-1101",
+  "materials": 4,
+  "defects": 2,
+  "time_entries": 3
+ },
+ "digest": "Production run RUN-1101: TC-30412 EPB-40 electric park brake actuator x490 on line A-1, status quality_hold, good 210, scrap 4, customer Ellandra Motors, order SO-3430, safety critical: yes, std cost $45,276.00, actual $19,773.60.\nNotes: Held - suspect output fastener lot WF-2261 (QP-8D containment)\nMaterials consumed: TC-31020 x214; TC-31110 x214 lot LK-0912 (Larkspur Electronics); TC-31215 x214 lot WF-2261 (Warrigal Fasteners); TC-31210 x856 lot WF-2260 (Warrigal Fasteners)\nDefect DEF-0894 [critical/open] torque_retention qty 2: Re-test of held run units: 2 further loosened joints - thread rolling suspect on lot WF-2261\nDefect DEF-0897 [minor/closed] grease_dose qty 8: Grease dose 2.05 g - low side drift on doser\nTime entries: Marcus Bell 190 min at A-1/30; Grace Udo 240 min at A-1/50; Tom Ishida 120 min at A-1/60\nHold HLD-0145 (open): Run consumed suspect lot WF-2261 - held at station 60 pending containment disposition",
+ "latency_ms": 5326,
+ "cached": false
+}

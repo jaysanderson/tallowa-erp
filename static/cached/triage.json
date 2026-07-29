@@ -1,0 +1,69 @@
+{
+ "triage": {
+  "category": "customer_complaint",
+  "severity": "major",
+  "route_to": "quality",
+  "immediate_action": "Contain the affected actuators and initiate a defect register entry.",
+  "summary": "Two actuators from the latest delivery failed the fitment re-torque check."
+ },
+ "answer": "1. **Contain**: Quarantine the two actuators that failed the fitment re-torque check. Tag them with a red NONCONFORMING tag carrying the defect number and move them to quarantine (warehouse zone Q1).\n\n2. **Correct the process**: Investigate the cause of the failure and implement corrective actions to address the issue.\n\n3. **Verify**: After correcting the process, verify the effectiveness by producing five consecutive good subgroups.\n\n4. **Release the line**: Once the verification is complete, the line can be released. Ensure all steps are recorded and countersigned by the shift quality inspector.\n\n5. **Run the QM-07 trace**: \n   - **Backward**: Bound the suspect window by raw lot and run.\n   - **Forward**: List every finished lot, shipment, customer purchase order, and receiving plant affected.\n\n6. **Sort or certify**: \n   - Inspect 100 per cent of unshipped stock before release.\n   - Notify customers of any shipped lots that were affected, including quantities, lot numbers, ship dates, and delivery references.",
+ "citations": [
+  {
+   "rid": "097560fb9652493dac7c84c7d41f01f8",
+   "file": "qp-ppap.md",
+   "title": "qp-ppap.md",
+   "score": 0.032040078192949295,
+   "snippet": " - Production restart after more than 12 months dormant.     ## Submission levels   Default is Level 3 (full submission with samples) unless the customer's CSR says   otherwise. Ellandra Motors requires Level 3 on safety-critical parts and Level 2   elsewhere; aftermarket custome"
+  },
+  {
+   "rid": "58e58b637d3a4e06a9ce5988996a5808",
+   "file": "qm-01-quality-manual.md",
+   "title": "qm-01-quality-manual.md",
+   "score": 0.0120537793263793,
+   "snippet": " - Risk-based thinking: PFMEA per part family and line; the top three risk priority   numbers per line are reviewed at the monthly quality council.   - Control of documented information: SWIs, SOPs, control plans and procedures are   controlled documents; only the revision in the"
+  },
+  {
+   "rid": "58e58b637d3a4e06a9ce5988996a5808",
+   "file": "qm-01-quality-manual.md",
+   "title": "qm-01-quality-manual.md",
+   "score": 0.007066400721669197,
+   "snippet": " - Internal audit: 12-month schedule covering every process; evidence current   within 90 days; zero overdue major findings.     ## Authority   The Plant Manager owns the QMS. The Quality Manager may stop any line, quarantine   any lot and hold any shipment without further approv"
+  },
+  {
+   "rid": "2dce0ab511654cc5864589ae6a2edd74",
+   "file": "qp-spc-control-plans.md",
+   "title": "qp-spc-control-plans.md",
+   "score": 0.0060269515961408615,
+   "snippet": "   ## Reaction plan basics   Contain first (parts since last good check into quarantine), then correct the   process, then verify with five consecutive good subgroups before releasing the   line. All three steps are recorded; the shift quality inspector countersigns. \n"
+  },
+  {
+   "rid": "c3ae59dd72724bab884488b83e2559a1",
+   "file": "qp-8d-containment.md",
+   "title": "qp-8d-containment.md",
+   "score": 0.003930085338652134,
+   "snippet": " 2. Run the QM-07 trace. Backward: bound the suspect window by raw lot and run.   Forward: list every finished lot, shipment, customer purchase order and   receiving plant affected.   3. Sort or certify everything inside the window: unshipped stock is 100 per cent   inspected bef"
+  },
+  {
+   "rid": "a5fe80773c924ee49b41604a36a9b883",
+   "file": "qm-07-traceability.md",
+   "title": "qm-07-traceability.md",
+   "score": 0.0029810327105224133,
+   "snippet": " 2. Raw lots issue to production FIFO; a lot is never split across unlabelled bins.   3. Every production run records which raw lots it consumed, at issue time, by scan.   No scan, no issue.   4. Each completed run produces one or more finished lots (lot numbers TC-A-xxxx   for a"
+  },
+  {
+   "rid": "a5fe80773c924ee49b41604a36a9b883",
+   "file": "qm-07-traceability.md",
+   "title": "qm-07-traceability.md",
+   "score": 0.002531111240386963,
+   "snippet": "   ## Lot control through the plant   1. Receiving records the supplier lot number against the purchase order and creates   a raw lot record with quantity, certificate of analysis (CoA) reference and   receipt date (SOP-REC-003). \n"
+  },
+  {
+   "rid": "cdecd24b614b48dca05da65ca903a983",
+   "file": "qm-04-nonconforming-product.md",
+   "title": "qm-04-nonconforming-product.md",
+   "score": 0.0018748616566881537,
+   "snippet": "# QM-04 Control of Nonconforming Product (Rev E)     Applies to any raw material, component, work-in-progress, finished part lot or   packed shipment at Bellbrook that fails a specification, inspection or test. \n"
+  }
+ ],
+ "cached": false
+}

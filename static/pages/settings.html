@@ -1,0 +1,62 @@
+<div class="grid2">
+  <div class="card"><h3>Platform settings</h3><div id="form"></div></div>
+  <div class="card"><h3>API access tokens</h3><div id="tokens"></div>
+    <div class="row" style="margin-top:10px">
+      <input type="text" id="tname" placeholder="Token name, e.g. EDI gateway" class="grow">
+      <button class="btn" id="mint">Create token</button>
+    </div>
+    <div class="hint" id="minted" style="margin-top:8px"></div>
+  </div>
+</div>
+<div class="card">
+  <h3>Demo reset</h3>
+  <div class="hint" style="margin-bottom:10px">Restores every record to the seeded state - runs, lots, holds, orders, invoices, audit trail. Takes a few seconds. Admin only.</div>
+  <button class="btn orange" id="reset">Reset demonstration data</button>
+  <span class="hint" id="resetmsg"></span>
+</div>
+<div class="card"><h3>System</h3><div id="info" class="hint mono"></div></div>
+<script>
+(async function(){
+  const u=me();
+  const s=await api('/api/settings/');
+  document.getElementById('form').innerHTML=
+    '<table><tbody>'+
+    ['company_name','plant_name','currency','gst_rate','margin_risk_threshold','ftt_target','ppm_target_sc','ppm_target_overall']
+      .map(k=>'<tr><td style="width:220px">'+k.replace(/_/g,' ')+'</td><td><input type="text" data-k="'+k+'" value="'+esc(s[k]||'')+'"'+(u.role!=='admin'?' disabled':'')+'></td></tr>').join('')+
+    '</tbody></table>'+(u.role==='admin'?'<div class="row" style="margin-top:10px"><button class="btn" id="save">Save settings</button></div>':'<div class="hint" style="margin-top:8px">Sign in as admin to change settings.</div>');
+  const saveBtn=document.getElementById('save');
+  if(saveBtn) saveBtn.onclick=async()=>{
+    const body={};
+    document.querySelectorAll('#form input').forEach(i=>body[i.dataset.k]=i.value);
+    await api('/api/settings/',{method:'PUT',body});
+    saveBtn.textContent='Saved'; setTimeout(()=>saveBtn.textContent='Save settings',1500);
+  };
+  if(u.role==='admin'){
+    const t=await api('/api/access-tokens/');
+    table('tokens', [
+      {k:'name', label:'Name'},
+      {k:'token_preview', label:'Token', fmt:v=>'<span class="mono">'+esc(v)+'</span>'},
+      {k:'created_at', label:'Created', fmt:dt},
+      {k:'last_used', label:'Last used', fmt:dt},
+      {k:'id', label:'', fmt:v=>'<button class="btn ghost" onclick="delTok('+v+')">Revoke</button>'},
+    ], t);
+  } else {
+    document.getElementById('tokens').innerHTML='<div class="empty">Admin only.</div>';
+  }
+  document.getElementById('mint').onclick=async()=>{
+    const r=await api('/api/access-tokens/',{method:'POST',body:{name:document.getElementById('tname').value||'API token'}});
+    document.getElementById('minted').innerHTML='Token (shown once): <span class="mono">'+esc(r.token)+'</span>';
+    location.hash=''; };
+  window.delTok=async id=>{ await api('/api/access-tokens/'+id,{method:'DELETE'}); location.reload(); };
+  document.getElementById('reset').onclick=async()=>{
+    const b=document.getElementById('reset'); b.disabled=true;
+    document.getElementById('resetmsg').textContent=' Resetting...';
+    try{ await api('/api/system/reset',{method:'POST'});
+      document.getElementById('resetmsg').textContent=' Done - data restored to the seeded state.'; }
+    catch(e){ document.getElementById('resetmsg').textContent=' '+e.message; }
+    b.disabled=false;
+  };
+  const info=await api('/api/system/info');
+  document.getElementById('info').textContent=JSON.stringify(info.records);
+})();
+</script>

@@ -1,0 +1,247 @@
+<div class="card" id="pendingCard" style="display:none">
+  <h3>Pending schedule changes<span class="sp"></span><span class="ai-tag">PRODUCTION PLANNER AUTHORITY</span></h3>
+  <div class="hint">Only a production planner (plant manager / supervisor) can approve a change that touches the schedule - not the sales role that proposed it.</div>
+  <div id="pendingOut" style="margin-top:8px"></div>
+</div>
+<div class="card">
+  <div id="wf"></div>
+</div>
+<div class="card">
+  <h3>Capable-to-promise<span class="ai-tag">AGENTIC RANKING</span></h3>
+  <div class="hint" style="margin-bottom:10px">One question, checked in parallel across BOM, stock, work-centre load, open POs and contract priority.</div>
+  <div class="row">
+    <select id="cpart" style="max-width:280px"></select>
+    <input type="number" id="cqty" value="250" style="max-width:110px" placeholder="Qty">
+    <select id="ccust" style="max-width:220px"></select>
+    <input type="text" id="cdate" placeholder="Requested by (e.g. 2026-08-01)" class="grow">
+    <button class="btn orange" id="cgo">Can we deliver?</button>
+  </div>
+  <div id="cout"></div>
+</div>
+<div class="card" id="whatifCard" style="display:none">
+  <h3>"What if we expedite that component?"<span class="sp"></span>
+    <button class="btn ghost" id="cwhatif">Re-run the scenario</button></h3>
+  <div id="whatifOut"></div>
+</div>
+<div class="card" id="commitCard" style="display:none">
+  <h3>Commit on the call<span class="sp"></span></h3>
+  <div class="hint">One approval act proposes both: the order confirmation (sales) and the supplier rush request (production planner sign-off).</div>
+  <div id="commitOut" style="margin-top:10px"></div>
+</div>
+<script>
+let lastCtp = null, lastExpedite = null, lastReq = null;
+const wf = workflowStepper('wf', [
+  {key:'request', label:'Request'},
+  {key:'check', label:'Check capability'},
+  {key:'whatif', label:'What-if expedite'},
+  {key:'propose', label:'Propose the commit'},
+  {key:'approve', label:'Approve & commit'},
+]);
+
+async function loadOptions(){
+  const parts = await api('/api/parts/');
+  const sel = document.getElementById('cpart');
+  const candidates = parts.filter(p=>p.category==='finished');
+  sel.innerHTML = candidates.map(p=>'<option value="'+p.part_no+'"'+(p.part_no==='TC-70210'?' selected':'')+'>'+p.part_no+' - '+esc(p.name)+'</option>').join('');
+  const custs = await api('/api/customers/');
+  const csel = document.getElementById('ccust');
+  csel.innerHTML = custs.map(c=>'<option value="'+c.code+'"'+(c.code==='MAR'?' selected':'')+'>'+esc(c.name)+'</option>').join('');
+}
+
+function ctpCard(d, title){
+  const c = d.ctp;
+  let h = '<div class="ai-answer">'+md(d.answer)+'</div>';
+  if (c.binding){
+    h += '<div class="grounding" style="font-size:12.5px;line-height:1.7">'+
+      '<b>Binding constraint:</b> '+esc(c.binding.part_no)+' '+esc(c.binding.name)+' - short '+n0(c.binding.short)+' units'+
+      (c.binding.po ? ' &middot; incoming '+c.binding.po.po_no+' ('+n0(c.binding.po.qty)+' units) '+(c.expedite?'pulled in to '+dt(c.conflict.applied_po_date):'expected '+dt(c.binding.po.expected_date)) : ' &middot; no open PO covers it')+
+      '<br><b>Computed commit date:</b> '+dt(c.commit_date)+' &middot; <b>Safer alternative:</b> '+dt(c.alt_safe_date)+
+      (c.conflict ? '<br><b>Conflict check:</b> '+(c.conflict.conflict?'CONFLICT with another order':'no conflict with other near-term orders') : '')+
+      '</div>';
+  } else {
+    h += '<div class="grounding">Material position strong - no shortage against this quantity.</div>';
+  }
+  return h;
+}
+
+document.getElementById('cgo').onclick = async ()=>{
+  const part_no = document.getElementById('cpart').value;
+  const qty = parseFloat(document.getElementById('cqty').value||250);
+  const customer_code = document.getElementById('ccust').value;
+  const requested_date = document.getElementById('cdate').value.trim();
+  const custLabel = document.getElementById('ccust').selectedOptions[0].textContent;
+  lastReq = {part_no, qty, customer_code, requested_date};
+  wf.set('request', 'done', {detail: n0(qty)+' x '+part_no+' for '+custLabel+(requested_date?', needed '+requested_date:'')+'.'});
+  wf.set('check', 'current');
+  wf.set('whatif', 'pending');
+  wf.set('propose', 'pending');
+  wf.set('approve', 'pending');
+  const out = document.getElementById('cout');
+  out.innerHTML = '<div class="shimmer"><span class="spin"></span>Working - BOM explosion, stock, work-centre load, open POs, contract priority, all in parallel...</div>';
+  document.getElementById('whatifCard').style.display='none';
+  document.getElementById('commitCard').style.display='none';
+  const t0 = performance.now();
+  try{
+    const d = await api('/api/ai/ctp-commit', {method:'POST', body:{...lastReq, golden:'ctp-commit'}});
+    const ms = Math.round(performance.now()-t0);
+    lastCtp = d;
+    out.innerHTML = ctpCard(d);
+    if (d.ctp.binding){
+      wf.set('check', 'done', {
+        detail: 'Short '+n0(d.ctp.binding.short)+' units of '+d.ctp.binding.part_no+' - commit date '+dt(d.ctp.commit_date)+'.',
+        trace: wfTrace('BOM, stock, work-centre load, open POs, contract priority', ms),
+      });
+      wf.set('whatif', 'current');
+      wf.set('propose', 'current');
+      document.getElementById('whatifCard').style.display='block';
+    } else {
+      wf.set('check', 'done', {
+        detail: 'Material position strong - no shortage against this quantity.',
+        trace: wfTrace('BOM, stock, work-centre load, open POs, contract priority', ms),
+      });
+      wf.set('whatif', 'skipped', {detail:'Not needed - no shortage on this order.'});
+      wf.set('propose', 'skipped', {detail:'Not needed - confirmed as a standard order.'});
+      wf.set('approve', 'skipped', {detail:'Not applicable.'});
+    }
+    document.getElementById('commitCard').style.display='block';
+    renderCommit();
+  }catch(ex){
+    out.innerHTML = '<div class="empty">Could not generate: '+esc(ex.message)+'</div>';
+    wf.set('check', 'blocked', {detail: ex.message});
+  }
+};
+
+document.getElementById('cwhatif').onclick = async ()=>{
+  const out = document.getElementById('whatifOut');
+  out.innerHTML = '<div class="shimmer"><span class="spin"></span>Re-running the scenario with the component expedited...</div>';
+  const t0 = performance.now();
+  try{
+    const d = await api('/api/ai/ctp-commit', {method:'POST', body:{...lastReq, expedite:true, golden:'ctp-commit-expedite'}});
+    const ms = Math.round(performance.now()-t0);
+    lastExpedite = d;
+    out.innerHTML = ctpCard(d);
+    wf.set('whatif', 'done', {
+      detail: 'Expedite modelled - commit date pulled to '+dt(d.ctp.commit_date)+(d.ctp.conflict ? (d.ctp.conflict.conflict?' (conflicts with another order)':' (no conflict with other orders)') : '')+'.',
+      trace: wfTrace('supplier lead time, order priority conflicts', ms),
+    });
+    renderCommit();
+  }catch(ex){ out.innerHTML = '<div class="empty">Could not generate: '+esc(ex.message)+'</div>'; }
+};
+
+function renderCommit(){
+  const use = lastExpedite || lastCtp;
+  if (!use) return;
+  const u = me();
+  let h = '';
+  if (!use.ctp.binding){
+    document.getElementById('commitOut').innerHTML = '<div class="hint">No shortage on this order - a standard sales order confirms it, no expedite needed.</div>';
+    return;
+  }
+  h += '<div class="row"><button class="btn" id="proposeBoth">Propose order confirmation + supplier rush request</button></div>';
+  h += '<div id="proposeOut" style="margin-top:10px"></div>';
+  document.getElementById('commitOut').innerHTML = h;
+  document.getElementById('proposeBoth').onclick = async ()=>{
+    const po = use.ctp.binding.po;
+    const applied = use.ctp.conflict ? use.ctp.conflict.applied_po_date : po.expected_date;
+    const out = document.getElementById('proposeOut');
+    out.innerHTML = '<div class="shimmer"><span class="spin"></span>Proposing...</div>';
+    const t0 = performance.now();
+    try{
+      const so = await api('/api/sales-orders/', {method:'POST', body:{
+        customer_code: lastReq.customer_code, customer_po: 'CTP-LIVE-'+Date.now().toString().slice(-5),
+        promised_date: use.ctp.commit_date,
+        lines: [{part_no: lastReq.part_no, qty: lastReq.qty}],
+        notes: 'Live CTP commit - date ' + use.ctp.commit_date + (lastExpedite?' (expedited)':'')}});
+      let h2 = '<div class="grounding">Draft order <b>'+so.so_no+'</b> created, total '+money(so.total)+'.</div>';
+      const exRequired = !!lastExpedite;
+      let needSales = false, needEx = false, soDone = false, exDone = false;
+      if (['sales','admin','plant_manager','supervisor'].includes(u.role)){
+        h2 += '<button class="btn" id="approveSo" style="margin-top:8px">Confirm the order (sales authority)</button>';
+        needSales = true;
+      } else {
+        h2 += '<div class="hint">Sign in as sales@tallowacomponents.com.au to confirm the order.</div>';
+      }
+      let exId = null;
+      if (lastExpedite){
+        const ex = await api('/api/expedite-requests/', {method:'POST', body:{
+          po_no: po.po_no, part_no: use.ctp.binding.part_no, requested_expected: applied,
+          reason: 'CTP commit for '+lastReq.part_no+' x'+lastReq.qty, linked_so_no: so.so_no}});
+        exId = ex.id;
+        h2 += '<div class="grounding" style="margin-top:8px">Supplier rush request proposed for '+po.po_no+' -&gt; '+dt(applied)+' (id '+ex.id+').</div>';
+        if (['plant_manager','supervisor','admin'].includes(u.role)){
+          h2 += '<button class="btn ghost" id="approveEx" style="margin-top:6px">Approve the schedule change (production planner authority)</button>';
+          needEx = true;
+        } else {
+          h2 += '<div class="hint">Sign in as plant@ or super@ (production planner authority) to approve the schedule change.</div>';
+        }
+      }
+      const ms = Math.round(performance.now()-t0);
+      out.innerHTML = h2;
+      wf.set('propose', 'done', {
+        detail: 'Order '+so.so_no+' drafted, '+money(so.total)+(lastExpedite?'; rush request proposed for '+po.po_no:'')+'.',
+        trace: wfTrace('order draft'+(lastExpedite?', supplier rush request':''), ms),
+      });
+      function updateApprove(){
+        // "required" = what the workflow itself needs before this order is truly
+        // committed (sales confirmation always; a schedule-change sign-off only
+        // when this run was expedited) - independent of whether the CURRENT
+        // user holds that authority. Conflating the two used to mark the step
+        // "done" the moment the signed-in user ran out of their own actions,
+        // even with the other authority's approval still outstanding.
+        const authLabel = ['Sales', exRequired?'Production planner':null].filter(Boolean).join(' + ');
+        const remaining = [];
+        if (!soDone) remaining.push('sales confirmation');
+        if (exRequired && !exDone) remaining.push('production-planner sign-off');
+        if (!remaining.length){
+          wf.set('approve', 'done', {
+            detail:'Committed - order confirmed'+(exRequired?', schedule change approved':'')+'.',
+            authority:authLabel,
+          });
+          return;
+        }
+        const canActNow = (!soDone && needSales) || (exRequired && !exDone && needEx);
+        if (canActNow){
+          wf.set('approve', 'current', {detail:'Awaiting '+remaining.join(' and ')+'.', authority:authLabel});
+        } else {
+          wf.set('approve', 'blocked', {detail:'Awaiting '+remaining.join(' and ')+' - sign in with that authority to approve.', authority:authLabel});
+        }
+      }
+      updateApprove();
+      const aso = document.getElementById('approveSo');
+      if (aso) aso.onclick = async ()=>{
+        await api('/api/sales-orders/'+so.so_no+'/approve', {method:'POST'});
+        aso.outerHTML = '<span class="b b-green">Order confirmed by '+esc(u.name)+'</span>';
+        soDone = true; updateApprove();
+      };
+      const aex = document.getElementById('approveEx');
+      if (aex) aex.onclick = async ()=>{
+        await api('/api/expedite-requests/'+exId+'/approve', {method:'POST'});
+        aex.outerHTML = '<span class="b b-green">Schedule change approved by '+esc(u.name)+' - PO pulled in to '+dt(applied)+'</span>';
+        exDone = true; updateApprove();
+      };
+    }catch(ex){ out.innerHTML = '<div class="empty">'+esc(ex.message)+'</div>'; }
+  };
+}
+
+async function loadPending(){
+  const u = me();
+  if (!['plant_manager','supervisor','admin'].includes(u.role)) return;
+  const rows = await api('/api/expedite-requests/?status=pending');
+  const card = document.getElementById('pendingCard');
+  if (!rows.length){ card.style.display='none'; return; }
+  card.style.display = 'block';
+  document.getElementById('pendingOut').innerHTML = rows.map(r=>
+    '<div class="step"><b>'+esc(r.po_no)+'</b> '+esc(r.part_no||'')+' - pull expected date to <b>'+dt(r.requested_expected)+'</b> (from '+dt(r.current_expected)+')'+
+    '<div class="why">Requested by '+esc(r.requested_by)+' &middot; '+esc(r.reason||'')+(r.linked_so_no?' &middot; linked to '+r.linked_so_no:'')+'</div>'+
+    '<button class="btn" style="margin-top:8px" onclick="approvePending('+r.id+',this)">Approve the schedule change</button></div>'
+  ).join('');
+}
+async function approvePending(id, btn){
+  btn.disabled = true; btn.textContent = 'Approving...';
+  await api('/api/expedite-requests/'+id+'/approve', {method:'POST'});
+  btn.outerHTML = '<span class="b b-green">Approved - PO pulled in</span>';
+}
+
+loadOptions();
+loadPending();
+</script>

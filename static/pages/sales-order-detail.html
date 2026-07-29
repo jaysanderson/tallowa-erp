@@ -1,0 +1,68 @@
+<div class="card"><h3 id="title">Order</h3><div id="meta" class="hint"></div>
+  <div id="lines" style="margin-top:12px"></div>
+  <div id="totals" style="text-align:right;margin-top:10px;font-size:13.5px"></div>
+  <div class="row" style="margin-top:12px" id="actions"></div>
+</div>
+<div class="grid2">
+  <div class="card"><h3>Production runs for this order</h3><div id="runs"></div></div>
+  <div class="card"><h3>Shipments</h3><div id="ships"></div></div>
+</div>
+<h2 class="sect">Assistants for this order</h2>
+<div class="grid2">
+  <div id="ai1"></div><div id="ai2"></div>
+</div>
+<script>
+(async function(){
+  const so_no=pathPart(1);
+  const so=await api('/api/sales-orders/'+so_no);
+  document.getElementById('title').innerHTML='<span class="mono">'+so.so_no+'</span> &nbsp;'+esc(so.customer_name)+' &nbsp;'+badge(so.status);
+  document.getElementById('meta').innerHTML='Their PO <span class="mono">'+esc(so.customer_po)+'</span> &middot; ordered '+dt(so.ordered_on)+' &middot; promised '+dt(so.promised_date)+
+    (so.ship_to_name?' &middot; ship to <b>'+esc(so.ship_to_name)+'</b>':'')+
+    (so.notes?'<br>Notes: '+esc(so.notes):'')+(so.lost_reason?'<br><b style="color:#9A2B22">Lost:</b> '+esc(so.lost_reason):'');
+  table('lines', [
+    {k:'part_no', label:'Part', fmt:(v,r)=>'<a class="mono" style="color:#B04E12" href="/parts/'+v+'">'+v+'</a> '+esc(r.part_name)},
+    {k:'customer_part_no', label:'Their part no', fmt:v=>v?'<span class="mono">'+esc(v)+'</span>':'-'},
+    {k:'qty', label:'Qty', cls:'num', fmt:n0},
+    {k:'unit_price', label:'Unit', cls:'num', fmt:money},
+    {k:'line_total', label:'Line total', cls:'num', fmt:money},
+  ], so.lines);
+  document.getElementById('totals').innerHTML='Subtotal '+money(so.subtotal)+' &nbsp; GST '+money(so.gst)+' &nbsp; <b>Total '+money(so.total)+'</b> <span class="hint">(server-computed)</span>';
+  const u=me();
+  if(['draft','submitted'].includes(so.status) && ['admin','plant_manager','supervisor'].includes(u.role)){
+    document.getElementById('actions').innerHTML=
+      '<button class="btn" id="approve">Approve order</button><button class="btn ghost" id="reject">Reject</button>';
+    document.getElementById('approve').onclick=async()=>{await api('/api/sales-orders/'+so_no+'/approve',{method:'POST'});location.reload();};
+    document.getElementById('reject').onclick=async()=>{await api('/api/sales-orders/'+so_no+'/reject',{method:'POST',body:{reason:'Rejected from order screen'}});location.reload();};
+  }
+  table('runs', [
+    {k:'run_no', label:'Run', fmt:v=>'<span class="mono">'+v+'</span>'},
+    {k:'status', label:'Status', fmt:badge},
+    {k:'qty_good', label:'Good / planned', cls:'num', fmt:(v,r)=>n0(v)+' / '+n0(r.qty_planned)},
+    {k:'scheduled_start', label:'Start', fmt:dt},
+  ], so.runs, {link:r=>'/production/'+r.run_no, empty:'No runs raised yet.'});
+  table('ships', [
+    {k:'shp_no', label:'Shipment', fmt:v=>'<span class="mono">'+v+'</span>'},
+    {k:'status', label:'Status', fmt:badge},
+    {k:'shipped_on', label:'Shipped', fmt:dt},
+    {k:'carrier', label:'Carrier'},
+  ], so.shipments, {empty:'Nothing shipped yet.'});
+
+  aiPanel('ai1', {endpoint:'/api/ai/quote-comms', title:'Follow-up draft',
+    tag:'GROUNDED DRAFT', button:'Draft follow-up', body:{so_no}, golden:'quote-comms'});
+  aiPanel('ai2', {endpoint:'/api/ai/variation-claim', title:'Variation claim',
+    tag:'GROUNDED DRAFT', button:'Draft claim', golden:'variation-claim',
+    body:()=>({so_no, change:document.getElementById('vchg').value})});
+  const vp=document.querySelector('#ai2 .ai-panel h3');
+  const ta=document.createElement('textarea'); ta.id='vchg';
+  ta.value='Customer wants the remaining quantity expedited by one week and a spec change to the connector boot material.';
+  vp.parentNode.insertBefore(ta, vp.nextSibling);
+  // commit-date helper for pending orders
+  if(['draft','submitted','approved'].includes(so.status) && so.lines.length){
+    const div=document.createElement('div'); div.id='ai3'; div.style.marginTop='16px';
+    document.querySelector('.content').appendChild(div);
+    aiPanel('ai3', {endpoint:'/api/ai/commit-date', title:'Commit-date check',
+      tag:'AGENTIC RANKING', button:'Recommend ship date',
+      body:{part_no:so.lines[0].part_no, qty:so.lines[0].qty}, golden:'commit-date'});
+  }
+})();
+</script>

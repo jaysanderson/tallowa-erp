@@ -1,0 +1,63 @@
+{
+ "answer": "The EPB-40 output fastener requires a torque of 24 Nm plus or minus 2 Nm. If a reading is out of window, it locks the station and raises a defect automatically. This information is found in the document \"SWI-A1-014 Standard Work - EPB-40 Actuator Final Assembly and Test (Rev G)\", section on Station 50.",
+ "citations": [
+  {
+   "rid": "c8de1cd9ac6440bba7d663524dac8cf9",
+   "file": "swi-a1-epb-actuator.md",
+   "title": "swi-a1-epb-actuator.md",
+   "score": 0.06406543403863907,
+   "snippet": "   ## Quality checks   - An out-of-window torque locks the station and raises a defect automatically.   - EOL rig fail on braking function is a critical defect (QM-04).   - First-off and last-off of every shift go to the CMM room for the SC dimension set. \n"
+  },
+  {
+   "rid": "c8de1cd9ac6440bba7d663524dac8cf9",
+   "file": "swi-a1-epb-actuator.md",
+   "title": "swi-a1-epb-actuator.md",
+   "score": 0.029986508190631866,
+   "snippet": "   ## Known failure mode   Torque retention loss on the output fastener traced to out-of-spec thread rolling   on a supplier fastener lot presents as a passed initial torque with a loosened   joint at re-test. Two or more units in a shift showing this pattern: stop, escalate   to"
+  },
+  {
+   "rid": "ec6f90a7c8ae4659af0115d4cdefe18d",
+   "file": "csr-ellandra-summary.md",
+   "title": "csr-ellandra-summary.md",
+   "score": 0.014503579586744308,
+   "snippet": "   ## Quality   - PPM target: 15 PPM on braking family parts, 35 PPM other. Measured on Ellandra's   receiving and line-fallout data, reconciled monthly.   - PPAP Level 3 on safety-critical parts (EPB-40 actuator family), Level 2   otherwise. Interim approvals expire at 90 days, "
+  },
+  {
+   "rid": "c8de1cd9ac6440bba7d663524dac8cf9",
+   "file": "swi-a1-epb-actuator.md",
+   "title": "swi-a1-epb-actuator.md",
+   "score": 0.01379536371678114,
+   "snippet": "# SWI-A1-014 Standard Work - EPB-40 Actuator Final Assembly and Test (Rev G)     Station: Assembly line A-1, stations 30 to 60. Takt: 4.5 minutes.   Part: TC-30412 EPB-40 electric park brake actuator (customer part ELL-88412-B,   Ellandra Motors; safety-critical family). \n"
+  },
+  {
+   "rid": "c8de1cd9ac6440bba7d663524dac8cf9",
+   "file": "swi-a1-epb-actuator.md",
+   "title": "swi-a1-epb-actuator.md",
+   "score": 0.01358439214527607,
+   "snippet": "   ## Operator requirements   Torque-critical qualification TQ-1 current at stations 40 and 50. One fitment   audit per operator per month.     ## Materials (per unit, from the effective BOM)   Housing TC-31020 (machined, in-house lot); motor and ECU set TC-31110 (Larkspur   Elec"
+  },
+  {
+   "rid": "e21d55bfbf734317b431ea8691465818",
+   "file": "trn-002-cert-matrix.md",
+   "title": "trn-002-cert-matrix.md",
+   "score": 0.012100386433303356,
+   "snippet": "# TRN-002 Training and Certification Matrix (Rev G)     Qualification is a condition of station assignment. The roster check at line   start-up (SOP-OPS-001) enforces this every shift.     ## Certifications and renewal   - TQ-1 Torque-critical qualification : required at every to"
+  },
+  {
+   "rid": "a5fe80773c924ee49b41604a36a9b883",
+   "file": "qm-07-traceability.md",
+   "title": "qm-07-traceability.md",
+   "score": 0.011331753805279732,
+   "snippet": " 2. Raw lots issue to production FIFO; a lot is never split across unlabelled bins.   3. Every production run records which raw lots it consumed, at issue time, by scan.   No scan, no issue.   4. Each completed run produces one or more finished lots (lot numbers TC-A-xxxx   for a"
+  },
+  {
+   "rid": "58e58b637d3a4e06a9ce5988996a5808",
+   "file": "qm-01-quality-manual.md",
+   "title": "qm-01-quality-manual.md",
+   "score": 0.00418249424546957,
+   "snippet": "# Tallowa Components Quality Manual - QM-01 (Rev H)     Scope: manufacture and dispatch of braking, chassis and e-mobility components at   the Bellbrook plant. Product families: Braking (EPB-40 park brake actuators,   caliper brackets), Chassis (control arms, steering knuckles, h"
+  }
+ ],
+ "latency_ms": 4342,
+ "cached": false
+}

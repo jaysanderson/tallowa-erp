@@ -1,0 +1,194 @@
+<div class="kpis" id="kpis"></div>
+<div class="card">
+  <h3>Quality holds</h3>
+  <div id="holds"></div>
+</div>
+<div class="card">
+  <h3>Defect register
+    <span class="sp"></span>
+    <select id="fsev" style="width:150px"><option value="">All severities</option>
+      <option>critical</option><option>major</option><option>minor</option></select>
+    <select id="fsrc" style="width:160px"><option value="">All sources</option>
+      <option>in_process</option><option>final_inspection</option>
+      <option>receiving</option><option>customer</option></select>
+  </h3>
+  <div id="defs"></div>
+</div>
+<h2 class="sect">Overnight FPY alert - Line A-2</h2>
+<div class="card">
+  <div id="wf"></div>
+</div>
+<div class="grid2">
+  <div id="fpyrootcause"></div>
+  <div class="card">
+    <h3>Contain the bad lot</h3>
+    <div class="hint">Every quarantine, hold and report needs the quality inspector's approval.</div>
+    <div id="containOut" style="margin-top:8px"></div>
+    <div class="row" style="margin-top:10px">
+      <button class="btn" id="containGo">Contain finished lot TC-A-4900 (resin lot KP-7742)</button>
+    </div>
+    <div id="draftCard" style="margin-top:16px"></div>
+  </div>
+</div>
+<div class="grid2">
+  <div id="rootcause"></div>
+  <div id="triage"></div>
+</div>
+<script>
+let d8Fields = null;
+const wf = workflowStepper('wf', [
+  {key:'alert', label:'Overnight alert'},
+  {key:'rank', label:'Rank suspects'},
+  {key:'contain', label:'Contain the lot'},
+  {key:'draft', label:'Draft the 8D'},
+  {key:'approve', label:'Approve & file'},
+]);
+wf.set('contain', 'pending', {authority:'Quality inspector'});
+wf.set('approve', 'pending', {authority:'Quality inspector'});
+wf.set('alert', 'done', {detail:'Line A-2 flagged overnight - FPY fell below target on the last completed run.'});
+wf.set('rank', 'current');
+
+(async function(){
+  const rc = document.getElementById('fpyrootcause');
+  aiPanel(rc, {endpoint:'/api/ai/fpy-root-cause', title:'Ranked root-cause suspects',
+    tag:'AGENTIC RANKING - CITED', button:'What happened overnight?',
+    body:{line:'A-2'}, golden:'fpy-root-cause', autorun:true,
+    onResult:(d, ms)=>{
+      if (!d){ wf.set('rank', 'blocked', {detail:'No suspects returned - check the defect register.'}); return; }
+      const fpy = d.data_used && d.data_used.fpy;
+      wf.set('rank', 'done', {
+        detail: (fpy!=null ? 'FPY '+fpy+'% on the flagged run - ' : '') + 'suspects ranked across material, equipment and shift.',
+        trace: wfTrace('defect register, raw lots, machines, shift notes', ms),
+      });
+      wf.set('contain', 'current', {authority:'Quality inspector'});
+    }});
+
+  document.getElementById('containGo').onclick = async ()=>{
+    const btn = document.getElementById('containGo');
+    btn.disabled = true; btn.textContent = 'Placing hold...';
+    const t0 = performance.now();
+    try{
+      const r = await api('/api/holds/', {method:'POST', body:{
+        scope:'finished_lot', scope_no:'TC-A-4900',
+        reason:'Contains resin lot KP-7742 - void/short-shot defects following overnight changeover, pending containment disposition'}});
+      const ms = Math.round(performance.now()-t0);
+      document.getElementById('containOut').innerHTML =
+        '<div class="grounding">Hold <b>'+r.hold_no+'</b> placed on finished lot TC-A-4900 (354 units) - blocked from shipping.'+
+        (r.already_open?' (already open)':'')+'</div>';
+      btn.outerHTML = '<span class="b b-green">Contained</span>';
+      wf.set('contain', 'done', {
+        detail: 'Hold '+r.hold_no+' placed on TC-A-4900 (354 units) - blocked from shipping.',
+        trace: wfTrace('hold policy, shipment status', ms),
+        authority:'Quality inspector',
+      });
+      wf.set('draft', 'current');
+      loadDraft();
+    }catch(ex){
+      document.getElementById('containOut').innerHTML = '<div class="empty">'+esc(ex.message)+'</div>';
+      btn.disabled = false; btn.textContent = 'Contain finished lot TC-A-4900 (resin lot KP-7742)';
+    }
+  };
+  document.getElementById('draftCard').innerHTML = '<div class="hint">Available once the lot is contained.</div>';
+})();
+
+async function loadDraft(){
+  const card = document.getElementById('draftCard');
+  card.innerHTML =
+    '<div class="row"><button class="btn ghost" id="draftGo">Draft the 8D report</button></div>'+
+    '<div id="draftOut" style="margin-top:8px"></div>';
+  document.getElementById('draftGo').onclick = async ()=>{
+    const out = document.getElementById('draftOut');
+    out.innerHTML = '<div class="shimmer"><span class="spin"></span>Drafting from the evidence and live containment status...</div>';
+    const t0 = performance.now();
+    try{
+      const d = await api('/api/ai/8d-draft', {method:'POST', body:{line:'A-2', golden:'8d-draft'}});
+      const ms = Math.round(performance.now()-t0);
+      d8Fields = d.fields;
+      out.innerHTML =
+        '<div id="d8draft"></div>'+
+        citesHtml(d.citations)+
+        '<div class="row" style="margin-top:8px"><button class="btn" id="d8approve">Approve as shown above</button></div>'+
+        '<div id="d8out" style="margin-top:8px"></div>';
+      const d8editor = draftPreview('d8draft', d.answer);
+      wf.set('draft', 'done', {
+        detail: '8D drafted from the containment record and defect evidence - ready for review.',
+        trace: wfTrace('containment status, defect evidence, 8D procedure', ms),
+      });
+      wf.set('approve', 'current', {authority:'Quality inspector'});
+      document.getElementById('d8approve').onclick = async ()=>{
+        const body = d8editor.getText();
+        const t1 = performance.now();
+        const r = await api('/api/8d-reports/', {method:'POST', body:{
+          line_code:'A-2', body, approve:true, ...(d8Fields||{})}});
+        const ms2 = Math.round(performance.now()-t1);
+        document.getElementById('d8out').innerHTML =
+          '<div class="grounding">Report <b>'+r.report_no+'</b> approved - filed, three hours before the OEM deadline.</div>';
+        wf.set('approve', 'done', {
+          detail: 'Report '+r.report_no+' approved and filed - three hours before the OEM deadline.',
+          trace: wfTrace('quality sign-off recorded', ms2),
+          authority:'Quality inspector',
+        });
+      };
+    }catch(ex){ out.innerHTML = '<div class="empty">'+esc(ex.message)+'</div>'; }
+  };
+}
+</script>
+<script>
+async function loadDefs(){
+  const sev=document.getElementById('fsev').value, src=document.getElementById('fsrc').value;
+  const rows = await api('/api/defects/?severity='+sev+'&source='+src);
+  table('defs', [
+    {k:'defect_no', label:'Defect', fmt:v=>'<span class="mono">'+v+'</span>'},
+    {k:'found_at', label:'Found', fmt:dt},
+    {k:'source', label:'Source', fmt:v=>esc(String(v).replace(/_/g,' '))},
+    {k:'code', label:'Code'},
+    {k:'part_no', label:'Part', fmt:v=>v?'<span class="mono">'+v+'</span>':'-'},
+    {k:'run_no', label:'Run', fmt:v=>v?'<span class="mono">'+v+'</span>':'-'},
+    {k:'raw_lot_no', label:'Raw lot', fmt:v=>v?'<a class="mono" style="color:#B04E12" href="/traceability?lot='+v+'">'+v+'</a>':'-'},
+    {k:'severity', label:'Severity', fmt:badge},
+    {k:'qty', label:'Units', cls:'num', fmt:n0},
+    {k:'status', label:'State', fmt:badge},
+    {k:'customer_name', label:'Customer'},
+  ], rows);
+}
+(async function(){
+  const defs = await api('/api/defects/');
+  const open = defs.filter(d=>d.status==='open');
+  kpi('kpis', [
+    {l:'Open defects', v:n0(open.length), tone:open.length?'warn':'ok'},
+    {l:'Open critical', v:n0(open.filter(d=>d.severity==='critical').length),
+     tone:open.some(d=>d.severity==='critical')?'bad':'ok'},
+    {l:'Customer complaints (all)', v:n0(defs.filter(d=>d.source==='customer').length)},
+    {l:'Units affected (open)', v:n0(open.reduce((a,d)=>a+(d.qty||0),0))},
+  ]);
+  const holds = await api('/api/holds/');
+  table('holds', [
+    {k:'hold_no', label:'Hold', fmt:v=>'<span class="mono">'+v+'</span>'},
+    {k:'scope', label:'Scope', fmt:v=>esc(String(v).replace(/_/g,' '))},
+    {k:'scope_label', label:'On', fmt:v=>'<span class="mono">'+esc(v)+'</span>'},
+    {k:'placed_at', label:'Placed', fmt:dt},
+    {k:'status', label:'State', fmt:v=>v==='released'?badge('released_h').replace('released h','released'):badge(v)},
+    {k:'reason', label:'Reason', fmt:v=>esc(String(v).slice(0,110))},
+  ], holds);
+  loadDefs();
+  document.getElementById('fsev').onchange=loadDefs;
+  document.getElementById('fsrc').onchange=loadDefs;
+
+  aiPanel('rootcause', {endpoint:'/api/ai/fault-root-cause', title:'Defect Pareto & root cause',
+    tag:'GROUNDED ANALYSIS', button:'Analyse', golden:'fault-root-cause'});
+  aiPanel('triage', {endpoint:'/api/ai/triage', title:'Triage an incoming issue',
+    tag:'GROUNDED AI', button:'Triage', questionInput:false, golden:'triage',
+    body:()=>({message:document.getElementById('tmsg').value}),
+    renderExtra:d=>{
+      if(!d.triage) return '';
+      const t=d.triage;
+      return '<div class="grounding" style="margin-top:10px">Classified: <b>'+esc(t.category)+'</b> &middot; severity '+badge(t.severity)+' &middot; route to <b>'+esc(t.route_to)+'</b><br>First action: '+esc(t.immediate_action)+'</div>';
+    }});
+  // add the free-text box into the triage panel
+  const tp = document.querySelector('#triage .ai-panel h3');
+  const ta = document.createElement('textarea');
+  ta.id='tmsg'; ta.placeholder='Describe the issue, e.g. "Night shift found three actuators with loose output fasteners at re-test on line A-1..."';
+  ta.value='Ellandra line called - two more actuators from the latest delivery failed the fitment re-torque check at Corio this morning.';
+  tp.parentNode.insertBefore(ta, tp.nextSibling);
+})();
+</script>

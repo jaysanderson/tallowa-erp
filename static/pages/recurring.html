@@ -1,0 +1,37 @@
+<div class="card">
+  <h3>Release schedules
+    <span class="sp"></span>
+    <button class="btn" id="runnow">Generate due runs</button>
+  </h3>
+  <div class="hint" style="margin-bottom:8px">Standing customer releases and internal replenishment - each schedule auto-generates production runs on its cadence.</div>
+  <div id="rows"></div>
+</div>
+<div class="grid2">
+  <div id="ai1"></div><div id="ai2"></div>
+</div>
+<script>
+async function load(){
+  const rows=await api('/api/recurring/');
+  table('rows', [
+    {k:'name', label:'Schedule'},
+    {k:'customer_name', label:'Customer', fmt:v=>v||'internal'},
+    {k:'part_no', label:'Part', fmt:v=>'<span class="mono">'+v+'</span>'},
+    {k:'qty', label:'Qty', cls:'num', fmt:n0},
+    {k:'line_code', label:'Line'},
+    {k:'cadence', label:'Cadence'},
+    {k:'next_run_date', label:'Next run', fmt:dt},
+    {k:'last_run_no', label:'Last generated', fmt:v=>v?'<a class="mono" style="color:#B04E12" href="/production/'+v+'">'+v+'</a>':'-'},
+    {k:'active', label:'', fmt:v=>v?'<span class="b b-green">active</span>':'<span class="b b-grey">paused</span>'},
+  ], rows);
+}
+load();
+document.getElementById('runnow').onclick=async()=>{
+  const r=await api('/api/recurring/run',{method:'POST'});
+  alert(r.created.length?('Generated: '+r.created.join(', ')):'Nothing due today.');
+  load();
+};
+aiPanel('ai1', {endpoint:'/api/ai/recurring-preview', title:'Schedule preview (3 weeks)',
+  tag:'GROUNDED ANALYSIS', button:'Preview load', golden:'recurring-preview'});
+aiPanel('ai2', {endpoint:'/api/ai/recurring-suggest', title:'New schedule suggestions',
+  tag:'GROUNDED ANALYSIS', button:'Suggest', golden:'recurring-suggest'});
+</script>

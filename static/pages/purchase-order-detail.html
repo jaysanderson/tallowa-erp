@@ -1,0 +1,35 @@
+<div class="card"><h3 id="title">Purchase order</h3><div id="meta" class="hint"></div>
+  <div id="lines" style="margin-top:12px"></div>
+  <div class="row" style="margin-top:12px" id="actions"></div>
+</div>
+<div class="card"><h3>Lots created from this PO</h3><div id="lots"></div></div>
+<script>
+(async function(){
+  const po_no=pathPart(1);
+  const po=await api('/api/purchase-orders/'+po_no);
+  document.getElementById('title').innerHTML='<span class="mono">'+po.po_no+'</span> &nbsp;'+esc(po.supplier_name)+' &nbsp;'+badge(po.status);
+  document.getElementById('meta').innerHTML='Ordered '+dt(po.ordered_on)+' &middot; expected '+dt(po.expected_date)+(po.received_on?' &middot; received '+dt(po.received_on):'')+' &middot; total '+money(po.total);
+  table('lines', [
+    {k:'part_no', label:'Part', fmt:(v,r)=>'<a class="mono" style="color:#B04E12" href="/parts/'+v+'">'+v+'</a> '+esc(r.part_name)},
+    {k:'qty', label:'Ordered', cls:'num', fmt:n0},
+    {k:'received_qty', label:'Received', cls:'num', fmt:n0},
+    {k:'unit_cost', label:'Unit cost', cls:'num', fmt:money},
+    {k:'traceable', label:'', fmt:v=>v?'<span class="b b-blue">lot on receipt</span>':''},
+  ], po.lines);
+  const u=me();
+  if(['sent','confirmed','partial'].includes(po.status) && ['admin','plant_manager','supervisor','line_lead'].includes(u.role)){
+    document.getElementById('actions').innerHTML='<button class="btn" id="recv">Receive delivery</button><span class="hint">Booking the receipt updates stock and creates lot records for traceable parts (SOP-REC-003).</span>';
+    document.getElementById('recv').onclick=async()=>{
+      const r=await api('/api/purchase-orders/'+po_no+'/receive',{method:'POST',body:{}});
+      alert('Received. Lots created: '+(r.lots_created.join(', ')||'none (non-traceable lines)'));
+      location.reload();
+    };
+  }
+  table('lots', [
+    {k:'lot_no', label:'Lot', fmt:v=>'<a class="mono" style="color:#B04E12" href="/traceability?lot='+v+'">'+v+'</a>'},
+    {k:'received_on', label:'Received', fmt:dt},
+    {k:'qty_received', label:'Qty', cls:'num', fmt:n0},
+    {k:'status', label:'Status', fmt:badge},
+  ], po.lots, {empty:'No lots yet - none received or lines are non-traceable.'});
+})();
+</script>

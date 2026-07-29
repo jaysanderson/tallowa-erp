@@ -1,0 +1,12 @@
+{
+ "answer": "### Line A-1 Shift Plan\n\n**Run Order Targets:**\n1. RUN-1101 TC-30412 x490 [quality_hold/high] for Ellandra Motors\n2. RUN-1106 TC-30412 x480 [planned/high] for Ellandra Motors\n3. RUN-1108 TC-30470 x420 [planned/normal] for AllBrake Distribution\n\n**Crewing Notes:**\n- **Tom Ishida** (line lead, night) - Oversee operations and ensure quality checks.\n- **Grace Udo** (operator, day) - Focus on RUN-1106 and RUN-1108.\n- **Dev Sharma** (material handler, afternoon) - Ensure timely material supply for all runs.\n- **Eve Sutton** (quality inspector, night) - Prioritise quality checks on RUN-1101.\n- **Milo Frost** (operator, afternoon) - Assist with RUN-1108 and support quality inspections.\n\n**Equipment Attention Items:**\n- All equipment is currently running:\n  - ASM-01 EPB assembly rig\n  - TST-01 EPB end-of-line test rig 1\n  - TST-02 EPB end-of-line test rig 2\n\n**Risk to Watch:**\n- Monitor the quality hold on RUN-1101 TC-30412. Ensure that any issues are addressed promptly to avoid delays in production.",
+ "citations": [],
+ "data_used": {
+  "line": "A-1",
+  "runs": 3,
+  "crew": 5
+ },
+ "digest": "Line A-1 Assembly & Test - Braking - status running\nRuns on this line: RUN-1101 TC-30412 x490 [quality_hold/high] for Ellandra Motors; RUN-1106 TC-30412 x480 [planned/high] for Ellandra Motors; RUN-1108 TC-30470 x420 [planned/normal] for AllBrake Distribution\nCrew: Tom Ishida (line_lead, night), Grace Udo (operator, day), Dev Sharma (material_handler, afternoon), Eve Sutton (quality_inspector, night), Milo Frost (operator, afternoon)\nEquipment attention: ASM-01 EPB assembly rig status=running; TST-01 EPB end-of-line test rig 1 status=running; TST-02 EPB end-of-line test rig 2 status=running",
+ "latency_ms": 7658,
+ "cached": false
+}

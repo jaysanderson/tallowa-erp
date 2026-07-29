@@ -1,0 +1,21 @@
+<div id="assistant"></div>
+<div class="card"><h3>Audit trail <span class="hint">(append-only)</span></h3><div id="rows"></div></div>
+<script>
+(async function(){
+  const rows=await api('/api/audit/?limit=120');
+  table('rows', [
+    {k:'at', label:'When', fmt:v=>'<span class="mono">'+esc(String(v).replace('T',' ').replace('Z',''))+'</span>'},
+    {k:'user_email', label:'Who', fmt:v=>esc(String(v).split('@')[0])},
+    {k:'action', label:'Action'},
+    {k:'entity', label:'Entity'},
+    {k:'entity_id', label:'Ref', fmt:v=>'<span class="mono">'+esc(v)+'</span>'},
+    {k:'detail', label:'Detail'},
+  ], rows);
+})();
+aiPanel('assistant', {endpoint:'/api/ai/audit-assistant', title:'Ask the audit trail',
+  tag:'GROUNDED AI', button:'Ask', questionInput:true, golden:'audit-assistant',
+  placeholder:'e.g. Who placed the holds on the fastener lot and in what order did containment happen?',
+  chips:['Who placed the holds on lot WF-2261 and when?',
+         'Walk me through the containment timeline for the fastener escape.',
+         'Which runs were completed in the last month and by whom?']});
+</script>

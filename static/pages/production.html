@@ -1,0 +1,34 @@
+<div class="card">
+  <h3>Production runs
+    <span class="sp"></span>
+    <select id="fstatus" style="width:180px">
+      <option value="">All statuses</option>
+      <option>planned</option><option>released</option><option>in_progress</option>
+      <option>quality_hold</option><option>completed</option><option>cancelled</option>
+    </select>
+  </h3>
+  <div id="runs"></div>
+</div>
+<div id="dispatch"></div>
+<script>
+async function load(){
+  const s = document.getElementById('fstatus').value;
+  const rows = await api('/api/runs/'+(s?'?status='+s:''));
+  table('runs', [
+    {k:'run_no', label:'Run', fmt:v=>'<span class="mono">'+v+'</span>'},
+    {k:'part_no', label:'Part', fmt:(v,r)=>'<span class="mono">'+v+'</span> '+esc(r.part_name)},
+    {k:'line_code', label:'Line'},
+    {k:'qty_planned', label:'Planned', cls:'num', fmt:n0},
+    {k:'qty_good', label:'Good', cls:'num', fmt:n0},
+    {k:'qty_scrap', label:'Scrap', cls:'num', fmt:n0},
+    {k:'status', label:'Status', fmt:badge},
+    {k:'priority', label:'Priority', fmt:v=>v==='high'?badge('critical').replace('critical','high'):esc(v)},
+    {k:'scheduled_start', label:'Start', fmt:dt},
+    {k:'customer_name', label:'Customer'},
+  ], rows, {link:r=>'/production/'+r.run_no});
+}
+document.getElementById('fstatus').onchange = load;
+load();
+aiPanel('dispatch', {endpoint:'/api/ai/dispatch-actions', title:'Dispatch recommendations',
+  tag:'AGENTIC RANKING', button:'Recommend sequence', golden:'dispatch-actions'});
+</script>

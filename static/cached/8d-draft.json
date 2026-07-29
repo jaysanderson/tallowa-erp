@@ -1,0 +1,76 @@
+{
+ "answer": "## Problem (D2)  \nThe First Pass Yield (FPY) for run RUN-1111 of the TC-70230 HV connector housing on line A-2 is 84.3 per cent, which is below the target of 96.5 per cent. This run produced 420 units, with 354 good units and 66 scrap, resulting in 5 defect events affecting 66 units.\n\n## Root cause (D4)  \nThe leading suspect for the defects is raw lot KP-7742, which was first used on this line. 47 of the 66 defect units (71 per cent) trace back to this lot, with defects primarily identified as DEF-0900, DEF-0901, and DEF-0902, all related to voids and short-shots after a resin lot changeover. The confidence in this root cause is high due to the significant correlation between the defect events and the first use of this material.\n\n## Containment (D3)  \nThe current containment status indicates that finished lot TC-A-4900, consisting of 354 units, is 'in_stock' and not yet on hold, meaning it is still shippable. Next, it is recommended to quarantine the remaining suspect stock and initiate sorting to prevent any further customer escapes.\n\n## Corrective action (D5-D7)  \nPending the quality inspector's approval, it is recommended to implement corrective actions that include conducting a thorough investigation of the raw lot KP-7742 and the overdue preventive maintenance on equipment INJ-01. Additionally, a review of the shift change impact should be performed to determine if further training or adjustments are necessary for the night-shift supervisor.",
+ "fields": {
+  "problem": "The First Pass Yield (FPY) for run RUN-1111 of the TC-70230 HV connector housing on line A-2 is 84.3 per cent, which is below the target of 96.5 per cent. This run produced 420 units, with 354 good units and 66 scrap, resulting in 5 defect events affecting 66 units.",
+  "root_cause": "The leading suspect for the defects is raw lot KP-7742, which was first used on this line. 47 of the 66 defect units (71 per cent) trace back to this lot, with defects primarily identified as DEF-0900, DEF-0901, and DEF-0902, all related to voids and short-shots after a resin lot changeover. The confidence in this root cause is high due to the significant correlation between the defect events and the first use of this material.",
+  "containment": "The current containment status indicates that finished lot TC-A-4900, consisting of 354 units, is 'in_stock' and not yet on hold, meaning it is still shippable. Next, it is recommended to quarantine the remaining suspect stock and initiate sorting to prevent any further customer escapes.",
+  "corrective_action": "Pending the quality inspector's approval, it is recommended to implement corrective actions that include conducting a thorough investigation of the raw lot KP-7742 and the overdue preventive maintenance on equipment INJ-01. Additionally, a review of the shift change impact should be performed to determine if further training or adjustments are necessary for the night-shift supervisor."
+ },
+ "citations": [
+  {
+   "rid": "c3ae59dd72724bab884488b83e2559a1",
+   "file": "qp-8d-containment.md",
+   "title": "qp-8d-containment.md",
+   "score": 0.08882029354572296,
+   "snippet": "qp-8d-containment.md"
+  },
+  {
+   "rid": "3710dc0020b3495b9b5e6f89fb231071",
+   "file": "sqa-std-supplier-quality.md",
+   "title": "sqa-std-supplier-quality.md",
+   "score": 0.0650087296962738,
+   "snippet": " - Delivery: 98 per cent on-time-in-full against the confirmed date.   - A missed level: quality development plan; two consecutive missed quarters:   new-business hold.     ## Nonconformance and escapes   On a confirmed lot escape the supplier: responds with containment within 24"
+  },
+  {
+   "rid": "c3ae59dd72724bab884488b83e2559a1",
+   "file": "qp-8d-containment.md",
+   "title": "qp-8d-containment.md",
+   "score": 0.05813159793615341,
+   "snippet": "   ## Records   Every 8D is registered with the defect number, the affected raw and finished lots   and the shipment list attached. Mock containment drills run quarterly.       "
+  },
+  {
+   "rid": "c3ae59dd72724bab884488b83e2559a1",
+   "file": "qp-8d-containment.md",
+   "title": "qp-8d-containment.md",
+   "score": 0.05079945921897888,
+   "snippet": "# QP-8D Problem Solving, Containment and Customer Escapes (Rev D)     Invoked for any critical defect, any confirmed out-of-spec raw-material lot, any   customer escape (defective parts found at or beyond the customer's dock), or any   defect trend crossing its control limit. Fol"
+  },
+  {
+   "rid": "cdecd24b614b48dca05da65ca903a983",
+   "file": "qm-04-nonconforming-product.md",
+   "title": "qm-04-nonconforming-product.md",
+   "score": 0.012007351033389568,
+   "snippet": " - Quarantine lot - where a lot-level cause is suspected, the whole lot is held   and the traceability procedure QM-07 is invoked; if any of the lot has shipped,   QP-8D containment starts immediately. \n"
+  },
+  {
+   "rid": "cdecd24b614b48dca05da65ca903a983",
+   "file": "qm-04-nonconforming-product.md",
+   "title": "qm-04-nonconforming-product.md",
+   "score": 0.00682395463809371,
+   "snippet": "   ## Severity rules   - Critical : a defect that could affect braking function, steering, structural   integrity or high-voltage safety in the customer's vehicle. A critical defect   found on shipped product triggers QP-8D and customer notification within 24 hours. \n"
+  },
+  {
+   "rid": "c3ae59dd72724bab884488b83e2559a1",
+   "file": "qp-8d-containment.md",
+   "title": "qp-8d-containment.md",
+   "score": 0.005469274707138538,
+   "snippet": " 4. Notify the raw-material supplier the same day where a supplier lot is implicated;   invoke the SQA-STD obligations (sorting support, 8D in 10 working days, costs).   5. The Quality Manager sets the containment level within 48 hours: \n"
+  },
+  {
+   "rid": "c3ae59dd72724bab884488b83e2559a1",
+   "file": "qp-8d-containment.md",
+   "title": "qp-8d-containment.md",
+   "score": 0.0028449096716940403,
+   "snippet": " - D4 (root cause verified): within 10 working days.   - D5-D6 (corrective action selected and implemented): within 20 working days.   - D7-D8 (prevent recurrence, close): within 30 working days.     ## Containment (D3) for a suspect lot   1. Quarantine remaining suspect stock ev"
+  }
+ ],
+ "data_used": {
+  "line": "A-2",
+  "run_no": "RUN-1111",
+  "fpy": 84.3,
+  "total_defect_units": 66.0
+ },
+ "digest": "Run RUN-1111 - TC-70230 HV connector housing on line A-2: FPY 84.3 per cent against the 96.5 per cent target (354 good, 66 scrap of 420 built). 5 defect events, 66 units affected.\nSUSPECT (material): raw lot KP-7742 (CoA CoA-KP-7742, received 2026-07-19) - FIRST USE on this line, no prior run history to compare against. 47 of 66 defect units (71 per cent) trace to this lot: DEF-0900 Void/short-shot on HV connector housing after resin lot changeover to KP-7742 at 02:10; DEF-0901 Void/short-shot on HV connector housing - same changeover batch, moisture-sensitive resin suspect; DEF-0902 Void/short-shot on HV connector housing - third event since changeover, same failure mode\nSUSPECT (equipment): INJ-01 - preventive maintenance OVERDUE by 5 day(s) (due 2026-07-16, last service 2026-04-17). 19 of 66 defect units (29 per cent) recorded against this machine: DEF-0903 HV connector housing wall thickness drifting outside tolerance - consistent with tooling wear on an ; DEF-0904 HV connector housing wall thickness drift - second event, same machine\nSUSPECT (shift): defect events ran 1.5x more frequent in the first half of the window (3 events, 47 units, 02:20-03:50) than the second half (2 events, 19 units, 03:50-05:20). Night-shift note on Ravi Fenn (TC1027), line lead for A-2: First night rostered as night-shift supervisor on A-2 - covering for T. Okonkwo (leave). Onboarded to the supervisor role three days ago.\nOverlaps to weigh: the shift change and the material changeover happened close together in this window - the material and equipment evidence should be checked before the shift factor is treated as more than a contributing correlation.\nCurrent containment status (live, not assumed):\n  Finished lot TC-A-4900 (354 units) - status 'in_stock' - NOT yet on hold, still shippable.",
+ "latency_ms": 4929,
+ "cached": false
+}

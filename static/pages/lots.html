@@ -1,0 +1,30 @@
+<div class="grid2">
+  <div class="card"><h3>Raw-material lots</h3><div id="raw"></div></div>
+  <div class="card"><h3>Finished lots</h3><div id="fin"></div></div>
+</div>
+<div style="height:16px"></div>
+<div id="lotsai"></div>
+<script>
+(async function(){
+  const d = await api('/api/lots/');
+  table('raw', [
+    {k:'lot_no', label:'Lot', fmt:v=>'<a class="mono" style="color:#B04E12" href="/traceability?lot='+v+'">'+v+'</a>'},
+    {k:'part_no', label:'Part', fmt:v=>'<span class="mono">'+v+'</span>'},
+    {k:'supplier_name', label:'Supplier'},
+    {k:'received_on', label:'Received', fmt:dt},
+    {k:'qty_remaining', label:'Remaining', cls:'num', fmt:(v,r)=>n0(v)+' / '+n0(r.qty_received)},
+    {k:'status', label:'Status', fmt:badge},
+  ], d.raw);
+  table('fin', [
+    {k:'lot_no', label:'Lot', fmt:v=>'<a class="mono" style="color:#B04E12" href="/traceability?lot='+v+'">'+v+'</a>'},
+    {k:'part_no', label:'Part', fmt:v=>'<span class="mono">'+v+'</span>'},
+    {k:'run_no', label:'Run', fmt:v=>'<a class="mono" style="color:#B04E12" href="/production/'+v+'">'+v+'</a>'},
+    {k:'produced_on', label:'Produced', fmt:dt},
+    {k:'qty_produced', label:'Produced', cls:'num', fmt:n0},
+    {k:'qty_shipped', label:'Shipped', cls:'num', fmt:n0},
+    {k:'status', label:'Status', fmt:badge},
+  ], d.finished);
+  aiPanel('lotsai', {endpoint:'/api/ai/lots', title:'Lot position review',
+    tag:'GROUNDED AI', button:'Review lots', golden:'lots'});
+})();
+</script>

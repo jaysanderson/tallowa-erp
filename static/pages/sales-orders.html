@@ -1,0 +1,34 @@
+<div class="card">
+  <h3>Sales orders
+    <span class="sp"></span>
+    <select id="fstatus" style="width:170px"><option value="">All statuses</option>
+      <option>draft</option><option>submitted</option><option>approved</option>
+      <option>in_production</option><option>fulfilled</option><option>rejected</option>
+      <option>lost</option></select>
+  </h3>
+  <div id="rows"></div>
+</div>
+<div class="grid2">
+  <div id="ai1"></div><div id="ai2"></div>
+</div>
+<script>
+async function load(){
+  const s=document.getElementById('fstatus').value;
+  const rows=await api('/api/sales-orders/'+(s?'?status='+s:''));
+  table('rows', [
+    {k:'so_no', label:'Order', fmt:v=>'<span class="mono">'+v+'</span>'},
+    {k:'customer_name', label:'Customer'},
+    {k:'customer_po', label:'Their PO', fmt:v=>'<span class="mono">'+esc(v)+'</span>'},
+    {k:'status', label:'Status', fmt:badge},
+    {k:'ordered_on', label:'Ordered', fmt:dt},
+    {k:'promised_date', label:'Promised', fmt:dt},
+    {k:'total', label:'Total (incl GST)', cls:'num', fmt:money},
+  ], rows, {link:r=>'/sales-orders/'+r.so_no});
+}
+document.getElementById('fstatus').onchange=load;
+load();
+aiPanel('ai1', {endpoint:'/api/ai/quote-risk', title:'Quote risk scan',
+  tag:'AGENTIC RANKING', button:'Score pending quotes', golden:'quote-risk'});
+aiPanel('ai2', {endpoint:'/api/ai/recurring-suggest', title:'Standing-schedule suggestions',
+  tag:'GROUNDED ANALYSIS', button:'Suggest schedules', golden:'recurring-suggest'});
+</script>

@@ -1,0 +1,70 @@
+{
+ "answer": "The posting failed because the vendor's cost centre is closed, which means every invoice from Coalcliff Steel cannot be processed until this is corrected. The exact fix is to update the vendor master's cost centre from CC-410 to CC-430, and then re-post the invoice. The AP clerk can authorise this correction under policy FIN-AP-03.",
+ "citations": [
+  {
+   "rid": "2cfefdf02db54039b469c1429c69de4b",
+   "file": "fin-ap-authorisation-matrix.md",
+   "title": "fin-ap-authorisation-matrix.md",
+   "score": 0.41590675711631775,
+   "snippet": "# FIN-AP Accounts Payable Authorisation Matrix (Rev B)     Who may correct and re-post a failed vendor invoice at Bellbrook, and under what   authority. Applies to every posting failure raised in the AP queue, whatever the   error code. \n"
+  },
+  {
+   "rid": "2cfefdf02db54039b469c1429c69de4b",
+   "file": "fin-ap-authorisation-matrix.md",
+   "title": "fin-ap-authorisation-matrix.md",
+   "score": 0.003976228181272745,
+   "snippet": "   ## FIN-AP-05 Banking detail changes - segregation of duties   Any change to a vendor's bank details triggers an automatic payment hold pending   independent verification by treasury (a callback to a previously known contact,   never the number on the change notice). This hold "
+  },
+  {
+   "rid": "2cfefdf02db54039b469c1429c69de4b",
+   "file": "fin-ap-authorisation-matrix.md",
+   "title": "fin-ap-authorisation-matrix.md",
+   "score": 0.0035518845543265343,
+   "snippet": "   ## FIN-AP-03 Vendor master data changes and cost-centre correction   A vendor master field (cost centre, GL mapping, payment terms) may be corrected   by the AP clerk within their standing delegation, provided every invoice the   correction affects is individually under the AP"
+  },
+  {
+   "rid": "2cfefdf02db54039b469c1429c69de4b",
+   "file": "fin-ap-authorisation-matrix.md",
+   "title": "fin-ap-authorisation-matrix.md",
+   "score": 0.003260345896705985,
+   "snippet": "   ## FIN-AP-04 GST and rounding corrections   GST code mismatches and rounding-tolerance breaches against the PO/GST   calculation are within the AP clerk's standing delegation to correct and re-post,   with no additional sign-off required. \n"
+  },
+  {
+   "rid": "2cfefdf02db54039b469c1429c69de4b",
+   "file": "fin-ap-authorisation-matrix.md",
+   "title": "fin-ap-authorisation-matrix.md",
+   "score": 0.002225670963525772,
+   "snippet": "   ## FIN-AP-01 Three-way match variance   A purchase-order-referenced invoice must match the PO line and the goods receipt   within a 2 per cent quantity/price tolerance. Outside tolerance, the AP clerk may   adjust and re-post once the buyer confirms the correct figure in writi"
+  },
+  {
+   "rid": "2cfefdf02db54039b469c1429c69de4b",
+   "file": "fin-ap-authorisation-matrix.md",
+   "title": "fin-ap-authorisation-matrix.md",
+   "score": 0.0017683517653495073,
+   "snippet": " - Above $5,000 per invoice, or any FIN-AP-05 banking-detail hold at any amount:   controller sign-off required - the AP clerk escalates rather than actioning it.   - Every correction, whatever the authority level, is logged to the audit trail   with the policy reference, the amo"
+  },
+  {
+   "rid": "2cfefdf02db54039b469c1429c69de4b",
+   "file": "fin-ap-authorisation-matrix.md",
+   "title": "fin-ap-authorisation-matrix.md",
+   "score": 0.0015854305820539594,
+   "snippet": "   ## Approval and delegation limits   - AP clerk: corrects and re-posts any invoice up to $5,000 per invoice under   FIN-AP-01 to FIN-AP-04, with no cap on the number of invoices in one batch   provided each is individually within the limit. \n"
+  },
+  {
+   "rid": "2cfefdf02db54039b469c1429c69de4b",
+   "file": "fin-ap-authorisation-matrix.md",
+   "title": "fin-ap-authorisation-matrix.md",
+   "score": 0.0012594986474141479,
+   "snippet": "fin-ap-authorisation-matrix.md"
+  }
+ ],
+ "data_used": {
+  "ap_no": "AP-8801",
+  "error_code": "GL-4102",
+  "amount": 2140.5,
+  "escalate": false
+ },
+ "digest": "AP invoice AP-8801 (VI-8801-CCS) from Coalcliff Steel (CCS), $2,140.50, status failed, error code GL-4102 - GL cost centre closed.\nVendor master cost centre on file: CC-410.\nWhat the code means: The vendor master record for this supplier still points at cost centre CC-410, which was closed when the plant's cost centres were restructured. Every invoice from that vendor fails GL validation until the vendor master is corrected - this is a vendor-master problem, not a per-invoice one.\nExact fix: Update the vendor master's cost centre from CC-410 to CC-430, then re-post. This one correction clears every failed invoice from the same vendor, not just this one.\nWho may authorise it: AP clerk - correcting a vendor master field and reposting the affected invoices is within the AP clerk's standing delegation (FIN-AP-03), provided each invoice is under the per-invoice approval limit.\nPolicy reference: FIN-AP-03",
+ "latency_ms": 4572,
+ "cached": false
+}

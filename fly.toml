@@ -1,0 +1,19 @@
+# Tallowa Components - Plant Operations (demo). Deploy on GM instruction only.
+app = "tallowa-plant"
+primary_region = "syd"
+
+[build]
+
+[http_service]
+  internal_port = 8080
+  force_https = true
+  auto_stop_machines = "stop"
+  auto_start_machines = true
+  min_machines_running = 0
+
+[[vm]]
+  size = "shared-cpu-1x"
+  memory = "512mb"
+
+# secrets to set before deploy (never in this file):
+#   fly secrets set ARAG_HOST=... KB_ID=... KB_TOKEN=... APP_SECRET=...

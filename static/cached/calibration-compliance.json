@@ -1,0 +1,67 @@
+{
+ "answer": "### Calibration Compliance Assessment\n\n**Overdue Device:**\n- **CMM-02 CMM - quality room 2**: Last calibrated on 2026-01-18, next due on 2026-07-17. This device is currently overdue.\n\n**Impact on Product:**\nUsing an overdue device is classified as a stop-work quality event. All acceptance decisions made by the CMM-02 since its last passed check must be assessed. This includes evaluating any affected lots under QM-04, which also covers shipped lots.\n\n### Action List\n1. **Withdraw CMM-02 immediately** from use.\n2. **Record the results** in the equipment register against the asset number for CMM-02.\n3. **Conduct an impact review** to assess all acceptance decisions made by CMM-02 since 2026-01-18.\n4. **Handle affected lots** according to QM-04, including any shipped lots.\n5. **Schedule calibration** for CMM-02 as soon as possible to restore compliance.\n6. **Monitor other devices** that are due soon to prevent future overdue situations. \n\n### Summary\nImmediate action is required to address the overdue CMM-02, including withdrawal from use and an impact review of all affected products.",
+ "citations": [
+  {
+   "rid": "1a89a49095bb485284504cfbed112dce",
+   "file": "cal-01-calibration.md",
+   "title": "cal-01-calibration.md",
+   "score": 0.6262384653091431,
+   "snippet": " A device past due is withdrawn at once - using an overdue device is a stop-work   quality event.   - Results are recorded in the equipment register against the asset number.   - An out-of-tolerance result at calibration triggers an impact review: every   acceptance decision made"
+  },
+  {
+   "rid": "1a89a49095bb485284504cfbed112dce",
+   "file": "cal-01-calibration.md",
+   "title": "cal-01-calibration.md",
+   "score": 0.1264611780643463,
+   "snippet": "   ## Responsibility   Maintenance and tooling owns the schedule; quality engineering owns impact   reviews. The calibration board is reviewed weekly - target: zero overdue devices,   nothing within 7 days of due unbooked. \n"
+  },
+  {
+   "rid": "1a89a49095bb485284504cfbed112dce",
+   "file": "cal-01-calibration.md",
+   "title": "cal-01-calibration.md",
+   "score": 0.014392335899174213,
+   "snippet": "cal-01-calibration.md"
+  },
+  {
+   "rid": "1a89a49095bb485284504cfbed112dce",
+   "file": "cal-01-calibration.md",
+   "title": "cal-01-calibration.md",
+   "score": 0.012194132432341576,
+   "snippet": "# CAL-01 Calibration of Measurement and Test Equipment (Rev E)     Covers every device at Bellbrook whose reading accepts or rejects product.     ## Intervals   - DC torque tools (station-mounted): monthly verification on the joint simulator,   annual full calibration. \n"
+  },
+  {
+   "rid": "2dce0ab511654cc5864589ae6a2edd74",
+   "file": "qp-spc-control-plans.md",
+   "title": "qp-spc-control-plans.md",
+   "score": 0.004609572235494852,
+   "snippet": "   ## Gauge control   Only gauges in calibration (CAL-01) may make an accept decision. Gauge R&R is   re-run after any gauge repair and at least every 24 months on SC gauges.       "
+  },
+  {
+   "rid": "1a89a49095bb485284504cfbed112dce",
+   "file": "cal-01-calibration.md",
+   "title": "cal-01-calibration.md",
+   "score": 0.0037507889792323112,
+   "snippet": " - Furnace thermocouples and chart loggers: system accuracy test quarterly,   temperature uniformity survey annually.     ## Rules   - Every device carries a calibration label: asset number, date done, date due. \n"
+  },
+  {
+   "rid": "1a89a49095bb485284504cfbed112dce",
+   "file": "cal-01-calibration.md",
+   "title": "cal-01-calibration.md",
+   "score": 0.003389783203601837,
+   "snippet": " - Hand click wrenches: quarterly verification; annual calibration; a dropped   wrench is re-verified before further use.   - CMMs (2 machines, quality room): annual external calibration (accredited   laboratory), monthly artefact check with the reference sphere and step gauge. \n"
+  },
+  {
+   "rid": "2dce0ab511654cc5864589ae6a2edd74",
+   "file": "qp-spc-control-plans.md",
+   "title": "qp-spc-control-plans.md",
+   "score": 0.0025909794494509697,
+   "snippet": " - Capability: Cpk at least 1.67 on SC characteristics, at least 1.33 on other   controlled characteristics, computed monthly per part and machine. A capability   breach opens a quality investigation and may not be closed by widening limits. \n"
+  }
+ ],
+ "data_used": {
+  "devices": 9
+ },
+ "digest": "Measurement and test equipment calibration position:\n  CMM-02 CMM - quality room 2: last 2026-01-18, next due 2026-07-17 (OVERDUE)\n  HRD-01 Hardness tester: last 2026-01-28, next due 2026-07-27 (due soon)\n  TST-01 EPB end-of-line test rig 1: last 2026-01-31, next due 2026-07-30 (due soon)\n  MC-M1-03 Eddy-current crack bench: last 2026-02-03, next due 2026-08-02 (due soon)\n  FUR-01 Sealed quench furnace: last 2026-02-19, next due 2026-08-18 (due soon)\n  TST-03 Hipot bench: last 2026-02-21, next due 2026-08-20 (due soon)\n  PLT-02 XRF plating gauge: last 2026-02-25, next due 2026-08-24 (current)\n  TST-02 EPB end-of-line test rig 2: last 2026-03-04, next due 2026-08-31 (current)\n  CMM-01 CMM - quality room 1: last 2026-04-07, next due 2026-10-04 (current)",
+ "latency_ms": 7140,
+ "cached": false
+}

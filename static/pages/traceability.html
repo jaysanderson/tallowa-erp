@@ -1,0 +1,73 @@
+<div class="card">
+  <h3>Trace a lot</h3>
+  <div class="row">
+    <input type="text" class="grow" id="lot" placeholder="Enter any lot number - raw (e.g. WF-2261) or finished (e.g. TC-A-4471)">
+    <button class="btn" id="go">Trace</button>
+  </div>
+  <div class="chiprow">
+    <span class="qchip">WF-2261</span><span class="qchip">TC-A-4471</span>
+    <span class="qchip">TC-A-4472</span><span class="qchip">MC-5520</span>
+    <span class="qchip">LK-0912</span>
+  </div>
+  <div class="hint">Forward trace: raw lot &rarr; production runs &rarr; finished lots &rarr; shipments &rarr; customer plants. Backward trace: finished lot &rarr; run &rarr; raw-material lots and suppliers. Target per QM-07: complete trace inside fifteen minutes - this one takes seconds.</div>
+</div>
+<div id="result"></div>
+<div id="traceai"></div>
+<script>
+const res = document.getElementById('result');
+let lastLot = '';
+async function trace(){
+  const lot = document.getElementById('lot').value.trim().toUpperCase();
+  if (!lot) return;
+  lastLot = lot;
+  res.innerHTML = '<div class="card"><div class="shimmer"><span class="spin"></span>Tracing '+esc(lot)+'...</div></div>';
+  let t, fwd=true;
+  try{ t = await api('/api/trace/forward?lot='+encodeURIComponent(lot)); }
+  catch(e){
+    try{ t = await api('/api/trace/backward?lot='+encodeURIComponent(lot)); fwd=false; }
+    catch(e2){ res.innerHTML='<div class="card"><div class="empty">No lot found with number '+esc(lot)+' - check the Lots page for valid lot numbers.</div></div>'; return; }
+  }
+  if (fwd){
+    const rl=t.raw_lot, e=t.exposure;
+    let h = '<div class="card"><h3>Forward trace - <span class="mono">'+rl.lot_no+'</span> '+badge(rl.status)+'</h3>';
+    h += '<div class="hint">'+esc(rl.part_no+' '+rl.part_name)+' from <b>'+esc(rl.supplier_name)+'</b>, received '+dt(rl.received_on)+', '+n0(rl.qty_remaining)+' of '+n0(rl.qty_received)+' remaining. CoA '+esc(rl.coa_ref)+'.</div>';
+    if (t.hold) h += '<div class="hint" style="color:#9A2B22;margin-top:6px"><b>'+t.hold.hold_no+'</b> ['+t.hold.status+'] '+esc(t.hold.reason)+'</div>';
+    h += '<div class="kpis" style="margin-top:12px">'+
+      '<div class="kpi"><div class="l">Runs consumed it</div><div class="v">'+t.runs.length+'</div></div>'+
+      '<div class="kpi"><div class="l">Finished lots</div><div class="v">'+t.finished_lots.length+'</div></div>'+
+      '<div class="kpi bad"><div class="l">Units shipped</div><div class="v">'+n0(e.shipped_qty)+'</div></div>'+
+      '<div class="kpi warn"><div class="l">Unshipped on site</div><div class="v">'+n0(e.unshipped_qty)+'</div></div>'+
+      '<div class="kpi"><div class="l">Customer plants</div><div class="v">'+e.ship_tos.length+'</div></div></div>';
+    h += '<h3 style="margin-top:8px">Runs</h3><table><thead><tr><th>Run</th><th>Part</th><th>Status</th><th class="num">Consumed</th></tr></thead><tbody>'+
+      t.runs.map(r=>'<tr class="click" onclick="location.href=\'/production/'+r.run_no+'\'"><td><span class="mono">'+r.run_no+'</span></td><td>'+esc(r.part_no+' '+r.part_name)+'</td><td>'+badge(r.status)+'</td><td class="num">'+n0(r.consumed_qty)+'</td></tr>').join('')+'</tbody></table>';
+    h += '<h3 style="margin-top:14px">Finished lots</h3><table><thead><tr><th>Lot</th><th>From run</th><th class="num">Produced</th><th class="num">Shipped</th><th class="num">On hand</th><th>Status</th></tr></thead><tbody>'+
+      t.finished_lots.map(f=>'<tr><td><span class="mono">'+f.lot_no+'</span></td><td><span class="mono">'+f.run_no+'</span></td><td class="num">'+n0(f.qty_produced)+'</td><td class="num">'+n0(f.qty_shipped)+'</td><td class="num">'+n0(f.qty_produced-f.qty_shipped)+'</td><td>'+badge(f.status)+(f.open_hold?' <span class="b b-red">'+f.open_hold.hold_no+'</span>':'')+'</td></tr>').join('')+'</tbody></table>';
+    h += '<h3 style="margin-top:14px">Shipments (customer exposure)</h3>'+(t.shipments.length?'<table><thead><tr><th>Shipment</th><th>Date</th><th>Lot</th><th class="num">Qty</th><th>Customer</th><th>Receiving plant</th><th>Their PO</th></tr></thead><tbody>'+
+      t.shipments.map(s=>'<tr><td><span class="mono">'+s.shp_no+'</span></td><td>'+dt(s.shipped_on)+'</td><td><span class="mono">'+s.finished_lot+'</span></td><td class="num">'+n0(s.qty)+'</td><td>'+esc(s.customer_name)+'</td><td>'+esc(s.ship_to_name||'')+'</td><td><span class="mono">'+esc(s.customer_po||'')+'</span></td></tr>').join('')+'</tbody></table>':'<div class="empty">Nothing from this lot has shipped.</div>');
+    h += '</div>';
+    res.innerHTML = h;
+  } else {
+    const fl=t.finished_lot;
+    let h = '<div class="card"><h3>Backward trace - <span class="mono">'+fl.lot_no+'</span> '+badge(fl.status)+'</h3>';
+    h += '<div class="hint">'+esc(fl.part_no+' '+fl.part_name)+', '+n0(fl.qty_produced)+' produced on '+dt(fl.produced_on)+' by <a class="mono" style="color:#B04E12" href="/production/'+t.run.run_no+'">'+t.run.run_no+'</a> (line '+t.run.line_code+').</div>';
+    h += '<h3 style="margin-top:14px">Inputs</h3><table><thead><tr><th>Part</th><th>Lot</th><th>Supplier</th><th>Received</th><th>CoA</th><th>Lot status</th><th class="num">Used</th></tr></thead><tbody>'+
+      t.materials.map(m=>'<tr><td>'+esc(m.part_no+' '+m.part_name)+'</td><td>'+(m.lot_no?'<span class="mono">'+m.lot_no+'</span>':'-')+'</td><td>'+esc(m.supplier_name||'-')+'</td><td>'+dt(m.received_on)+'</td><td>'+esc(m.coa_ref||'-')+'</td><td>'+(m.lot_status?badge(m.lot_status):'-')+'</td><td class="num">'+n0(m.qty)+'</td></tr>').join('')+'</tbody></table>';
+    h += '<h3 style="margin-top:14px">Where it went</h3>'+(t.shipments.length?'<table><thead><tr><th>Shipment</th><th>Date</th><th class="num">Qty</th><th>Customer</th><th>Plant</th></tr></thead><tbody>'+
+      t.shipments.map(s=>'<tr><td><span class="mono">'+s.shp_no+'</span></td><td>'+dt(s.shipped_on)+'</td><td class="num">'+n0(s.qty)+'</td><td>'+esc(s.customer_name)+'</td><td>'+esc(s.ship_to_name||'')+'</td></tr>').join('')+'</tbody></table>':'<div class="empty">Not shipped - still on site.</div>');
+    h += '</div>';
+    res.innerHTML = h;
+  }
+  renderAiPanel();
+}
+function renderAiPanel(){
+  aiPanel('traceai', {endpoint:'/api/ai/lot-trace', title:'Containment narrative',
+    tag:'GROUNDED AI - CITED', button:'Narrate exposure & containment',
+    body:()=>({lot:lastLot||document.getElementById('lot').value.trim().toUpperCase()||'WF-2261'}),
+    golden:'lot-trace'});
+}
+document.getElementById('go').onclick = trace;
+document.getElementById('lot').addEventListener('keydown', e=>{ if(e.key==='Enter') trace(); });
+document.querySelectorAll('.qchip').forEach(c=>c.onclick=()=>{ document.getElementById('lot').value=c.textContent; trace(); });
+const p = new URLSearchParams(location.search).get('lot');
+if (p){ document.getElementById('lot').value=p; trace(); } else { document.getElementById('lot').value='WF-2261'; trace(); }
+</script>

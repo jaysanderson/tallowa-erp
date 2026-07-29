@@ -1,0 +1,38 @@
+<div class="card"><h3>Bellbrook Plant - production lines</h3><div id="rows"></div></div>
+<div class="card">
+  <h3>Line assistants
+    <span class="sp"></span>
+    <select id="lsel" style="width:220px"></select>
+  </h3>
+  <div class="grid2">
+    <div id="ai1"></div><div id="ai2"></div>
+  </div>
+  <div style="margin-top:16px" id="ai3"></div>
+</div>
+<script>
+let currentLine='A-1';
+(async function(){
+  const rows=await api('/api/lines/');
+  table('rows', [
+    {k:'code', label:'Line', fmt:v=>'<span class="mono">'+v+'</span>'},
+    {k:'name', label:'Name'},
+    {k:'process_type', label:'Process', fmt:v=>esc(String(v).replace(/_/g,' '))},
+    {k:'takt_seconds', label:'Takt (s)', cls:'num', fmt:n0},
+    {k:'status', label:'Status', fmt:(v,r)=>badge(v)+(r.stoppage_reason?' <span class="hint">'+esc(r.stoppage_reason)+'</span>':'')},
+    {k:'machines', label:'Machines', cls:'num'},
+    {k:'active_runs', label:'Active runs', cls:'num'},
+  ], rows);
+  const sel=document.getElementById('lsel');
+  sel.innerHTML=rows.map(r=>'<option value="'+r.code+'"'+(r.code==='A-1'?' selected':'')+'>'+r.code+' - '+esc(r.name)+'</option>').join('');
+  sel.onchange=()=>{ currentLine=sel.value; mount(); };
+  mount();
+})();
+function mount(){
+  aiPanel('ai1', {endpoint:'/api/ai/day-plan', title:'Shift plan',
+    tag:'GROUNDED AI', button:'Build shift plan', body:()=>({line:currentLine}), golden:'day-plan'});
+  aiPanel('ai2', {endpoint:'/api/ai/safety-preflight', title:'Pre-shift safety briefing',
+    tag:'GROUNDED AI - CITED', button:'Prepare briefing', body:()=>({line:currentLine}), golden:'safety-preflight'});
+  aiPanel('ai3', {endpoint:'/api/ai/plant-access-briefing', title:'Visitor / contractor access briefing',
+    tag:'GROUNDED AI - CITED', button:'Prepare access briefing', body:()=>({line:currentLine}), golden:'plant-access-briefing'});
+}
+</script>

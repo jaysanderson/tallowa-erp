@@ -1,0 +1,10 @@
+{
+ "answer": "Subject: Follow-Up on Your Order SO-3438\n\nDear Col,\n\nI hope this message finds you well. I wanted to follow up on your order SO-3438, referencing your purchase order ABD-PO-1201, valued at $10,956.00. This order includes 400 units of AB-PBC40 at $24.90 each, submitted three days ago, with a requested delivery date of 4 August 2026.\n\nWe understand that timely delivery is crucial, and we are currently reviewing the production schedule to ensure we meet your needs. If there are any concerns or adjustments required, please let us know.\n\nTo proceed smoothly, could you confirm if the requested delivery date works for you? \n\nThank you for your attention, and we look forward to your response.\n\nBest regards,  \nThe Tallowa Components sales team",
+ "citations": [],
+ "data_used": {
+  "so": "SO-3438"
+ },
+ "digest": "Order SO-3438 [submitted] for AllBrake Distribution (contact Col Whitford), reference ABD-PO-1201, value $10,956.00, submitted 3 days ago, requested date 2026-08-04.\nLines: AB-PBC40 x400 at $24.90",
+ "latency_ms": 7141,
+ "cached": false
+}

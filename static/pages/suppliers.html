@@ -1,0 +1,20 @@
+<div class="card"><h3>Suppliers</h3><div id="rows"></div></div>
+<div id="risk"></div>
+<script>
+(async function(){
+  const rows=await api('/api/suppliers/');
+  table('rows', [
+    {k:'code', label:'Code', fmt:v=>'<span class="mono">'+v+'</span>'},
+    {k:'name', label:'Supplier'},
+    {k:'category', label:'Category'},
+    {k:'city', label:'Location', fmt:(v,r)=>esc(v+', '+r.state)},
+    {k:'rating', label:'Rating', cls:'num', fmt:v=>v.toFixed(1)},
+    {k:'on_time_pct', label:'On time', cls:'num', fmt:v=>'<span style="color:'+(v<97?'#B3352B':'#2E7D4F')+'">'+v.toFixed(1)+'%</span>'},
+    {k:'ppm', label:'PPM', cls:'num', fmt:v=>'<span style="color:'+(v>350?'#B3352B':'#2E7D4F')+'">'+n0(v)+'</span>'},
+    {k:'open_pos', label:'Open POs', cls:'num'},
+    {k:'quarantined_lots', label:'Held lots', cls:'num', fmt:v=>v?'<b style="color:#B3352B">'+v+'</b>':'0'},
+  ], rows, {link:r=>'/suppliers/'+r.code});
+})();
+aiPanel('risk', {endpoint:'/api/ai/risk-watchlist', title:'Supplier & order risk watchlist',
+  tag:'GROUNDED ANALYSIS', button:'Build watchlist', golden:'risk-watchlist'});
+</script>

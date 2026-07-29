@@ -1,0 +1,54 @@
+<div class="card"><h3 id="title">Part</h3><div id="meta" class="hint"></div></div>
+<div class="grid2">
+  <div class="card"><h3>Bill of materials</h3><div id="bom"></div><div id="whereused" class="hint" style="margin-top:8px"></div></div>
+  <div class="card"><h3>Stock by location</h3><div id="stock"></div></div>
+</div>
+<div style="height:16px"></div>
+<div class="grid2">
+  <div class="card"><h3>Raw lots</h3><div id="rawlots"></div></div>
+  <div class="card"><h3>Finished lots</h3><div id="finlots"></div></div>
+</div>
+<div style="height:16px"></div>
+<div class="card"><h3>Sold to</h3><div id="custs"></div></div>
+<script>
+(async function(){
+  const part_no=pathPart(1);
+  const p=await api('/api/parts/'+part_no);
+  document.getElementById('title').innerHTML='<span class="mono">'+p.part_no+'</span> &nbsp;'+esc(p.name)+
+    (p.safety_critical?' <span class="b b-navy">SAFETY CRITICAL</span>':'')+
+    (p.traceable?' <span class="b b-blue">LOT CONTROLLED</span>':'');
+  document.getElementById('meta').innerHTML='Family <b>'+p.family+'</b> &middot; category '+p.category+' &middot; std cost '+money(p.std_cost)+(p.price?' &middot; list price '+money(p.price):'')+(p.supplier_name?' &middot; preferred supplier '+esc(p.supplier_name):'');
+  table('bom', [
+    {k:'part_no', label:'Component', fmt:(v,r)=>'<a class="mono" style="color:#B04E12" href="/parts/'+v+'">'+v+'</a> '+esc(r.comp_name)},
+    {k:'qty_per', label:'Qty per', cls:'num'},
+    {k:'station', label:'Station'},
+    {k:'traceable', label:'', fmt:v=>v?'<span class="b b-blue">lot</span>':''},
+  ], p.bom, {empty:'No BOM - purchased or raw item.'});
+  if(p.where_used.length) document.getElementById('whereused').innerHTML='Used in: '+p.where_used.map(w=>'<a class="mono" style="color:#B04E12" href="/parts/'+w.part_no+'">'+w.part_no+'</a>').join(', ');
+  table('stock', [
+    {k:'code', label:'Location', fmt:v=>'<span class="mono">'+v+'</span>'},
+    {k:'name', label:''},
+    {k:'type', label:'Type', fmt:v=>v==='quarantine'?badge('quarantine'):esc(String(v).replace(/_/g,' '))},
+    {k:'qty', label:'Qty', cls:'num', fmt:n0},
+  ], p.stock, {empty:'No stock on hand.'});
+  table('rawlots', [
+    {k:'lot_no', label:'Lot', fmt:v=>'<a class="mono" style="color:#B04E12" href="/traceability?lot='+v+'">'+v+'</a>'},
+    {k:'supplier_name', label:'Supplier'},
+    {k:'received_on', label:'Received', fmt:dt},
+    {k:'qty_remaining', label:'Remaining', cls:'num', fmt:(v,r)=>n0(v)+' / '+n0(r.qty_received)},
+    {k:'status', label:'Status', fmt:badge},
+  ], p.raw_lots, {empty:'No raw lots for this part.'});
+  table('finlots', [
+    {k:'lot_no', label:'Lot', fmt:v=>'<a class="mono" style="color:#B04E12" href="/traceability?lot='+v+'">'+v+'</a>'},
+    {k:'produced_on', label:'Produced', fmt:dt},
+    {k:'qty_produced', label:'Produced', cls:'num', fmt:n0},
+    {k:'qty_shipped', label:'Shipped', cls:'num', fmt:n0},
+    {k:'status', label:'Status', fmt:badge},
+  ], p.finished_lots, {empty:'No finished lots for this part.'});
+  table('custs', [
+    {k:'name', label:'Customer'},
+    {k:'customer_part_no', label:'Their part no', fmt:v=>'<span class="mono">'+esc(v)+'</span>'},
+    {k:'price', label:'Contract price', cls:'num', fmt:money},
+  ], p.customers, {empty:'Not sold externally - internal part.'});
+})();
+</script>

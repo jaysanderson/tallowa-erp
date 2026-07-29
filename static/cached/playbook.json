@@ -1,0 +1,70 @@
+{
+ "answer": "# Build Playbook for TC-30412 EPB-40 Electric Park Brake Actuator\n\n## Purpose\nTo outline the standard work process for the final assembly and testing of the TC-30412 EPB-40 electric park brake actuator, ensuring compliance with quality and safety standards.\n\n## Qualifications Required\n- Torque-critical qualification TQ-1 for operators at stations 40 and 50.\n- One fitment audit per operator per month.\n\n## Materials and Lots\n- Housing TC-31020 (machined, in-house lot).\n- Motor and ECU set TC-31110 (Larkspur Electronics - traceable, lot scan mandatory).\n- Gear set TC-31140.\n- Spindle assembly TC-31160.\n- Case screws TC-31210 M5 x 4 (Warrigal Fasteners - traceable, single use).\n- Output fastener TC-31215 M8 x 1 (Warrigal Fasteners - traceable).\n\n## Process Steps with Control Points\n1. **Station 30**: \n   - Scan the run number, housing lot, and motor set lot. The station will not advance without every traceable scan (QM-07).\n   \n2. **Station 40**: \n   - Seat gear set and spindle.\n   - Grease dose: 2.4 g plus or minus 0.2 g from the metered dispenser.\n\n3. **Station 50**: \n   - Fit case screws using a DC tool sequence to 6 Nm plus or minus 0.5 Nm (four screws, star order).\n   - Fit output fastener to 24 Nm plus or minus 2 Nm.\n   - The tool records every trace curve against the unit serial. Apply the yellow witness mark.\n\n4. **Station 60**: \n   - Conduct a full apply-release cycle on the end-of-line rig.\n   - Current draw window: 1.9 to 2.6 A.\n   - Actuation time: under 900 ms.\n   - Perform a park-hold load test. A fail routes the unit to the quarantine chute, not the tote.\n\n## Quality Gates\n- Every part must pass the crack-detection bench (eddy current) after washing. A reject is a critical defect; tag and quarantine.\n- Every busbar set must pass the hipot bench: 3 kV DC, 60 seconds, leakage under 1 mA, plus continuity across every leg. A hipot fail is a critical defect (high-voltage safety) - quarantine chute, QM-04 applies.\n- Sample the lot to the part's outgoing inspection plan; any failure quarantines the whole lot (QM-04); no partial release.\n\n## Watch-outs from History\n- **Grease Dose**: One event recorded with 8 units affected.\n- **Torque Retention**: Two events recorded with 5 units affected.\n- **EOL Fail Current**: One event recorded with 4 units affected.\n- **Torque Out of Window**: One event recorded with 2 units affected.\n\n## Reset/Recovery\nIn the event of a failure:\n- Quarantine the affected units and investigate the root cause.\n- Review the torque settings and grease dosing procedures.\n- Ensure all operators are retrained on the critical steps and checks.\n- Document the recovery actions taken and update the standard work instructions as necessary.",
+ "part_no": "TC-30412",
+ "citations": [
+  {
+   "rid": "c8de1cd9ac6440bba7d663524dac8cf9",
+   "file": "swi-a1-epb-actuator.md",
+   "title": "swi-a1-epb-actuator.md",
+   "score": 0.5014276504516602,
+   "snippet": "# SWI-A1-014 Standard Work - EPB-40 Actuator Final Assembly and Test (Rev G)     Station: Assembly line A-1, stations 30 to 60. Takt: 4.5 minutes.   Part: TC-30412 EPB-40 electric park brake actuator (customer part ELL-88412-B,   Ellandra Motors; safety-critical family). \n"
+  },
+  {
+   "rid": "c8de1cd9ac6440bba7d663524dac8cf9",
+   "file": "swi-a1-epb-actuator.md",
+   "title": "swi-a1-epb-actuator.md",
+   "score": 0.01778038963675499,
+   "snippet": "   ## Operator requirements   Torque-critical qualification TQ-1 current at stations 40 and 50. One fitment   audit per operator per month.     ## Materials (per unit, from the effective BOM)   Housing TC-31020 (machined, in-house lot); motor and ECU set TC-31110 (Larkspur   Elec"
+  },
+  {
+   "rid": "c8de1cd9ac6440bba7d663524dac8cf9",
+   "file": "swi-a1-epb-actuator.md",
+   "title": "swi-a1-epb-actuator.md",
+   "score": 0.017576884478330612,
+   "snippet": "swi-a1-epb-actuator.md"
+  },
+  {
+   "rid": "c8de1cd9ac6440bba7d663524dac8cf9",
+   "file": "swi-a1-epb-actuator.md",
+   "title": "swi-a1-epb-actuator.md",
+   "score": 0.005730246659368277,
+   "snippet": " 4. Station 60: end-of-line rig - full apply-release cycle, current draw window   1.9 to 2.6 A, actuation time under 900 ms, park-hold load test. The rig writes   the serial's result; a fail routes the unit to the quarantine chute, not the tote. \n"
+  },
+  {
+   "rid": "9fafeac39c074747ae16d6c19506e9c1",
+   "file": "swi-m1-knuckle-machining.md",
+   "title": "swi-m1-knuckle-machining.md",
+   "score": 0.00482972152531147,
+   "snippet": " safety-critical family). Input: forged blank TC-11040 (Meander Castings -   traceable).     ## Operator requirements   Machine induction MI-M1; in-process gauging authorisation; TQ-1 not required   (no torque joints at this line). \n"
+  },
+  {
+   "rid": "b25c634bde87460db28cab6e8d6b62d2",
+   "file": "sop-final-inspection-despatch.md",
+   "title": "sop-final-inspection-despatch.md",
+   "score": 0.001995538594201207,
+   "snippet": " 2. Sample the lot to the part's outgoing inspection plan; braking-family   assemblies additionally re-test a sample of 3 serials on the EOL rig.   3. Any failure quarantines the whole lot (QM-04); no partial release. \n"
+  },
+  {
+   "rid": "9fafeac39c074747ae16d6c19506e9c1",
+   "file": "swi-m1-knuckle-machining.md",
+   "title": "swi-m1-knuckle-machining.md",
+   "score": 0.0017409836873412132,
+   "snippet": " 3. Op 10 mill datum faces; op 20 bore kingpin and hub bores; op 30 drill and tap   caliper mounts; op 40 deburr and wash.   4. In-process gauge every 5th part: hub bore diameter 72.000 to 72.019 mm; kingpin   bore taper per gauge card; caliper mount true position within 0.15 mm "
+  },
+  {
+   "rid": "c8de1cd9ac6440bba7d663524dac8cf9",
+   "file": "swi-a1-epb-actuator.md",
+   "title": "swi-a1-epb-actuator.md",
+   "score": 0.0013458604225888848,
+   "snippet": " 3. Station 50: fit case screws, DC tool sequence 6 Nm plus or minus 0.5 Nm, four   screws, star order. Fit output fastener: 24 Nm plus or minus 2 Nm . The tool   records every trace curve against the unit serial. Apply the yellow witness mark. \n"
+  }
+ ],
+ "data_used": {
+  "runs": 4,
+  "defect_codes": 4,
+  "bom_lines": 8
+ },
+ "digest": "Part TC-30412 EPB-40 electric park brake actuator (braking, safety critical: yes).\nBOM: TC-31020 x1.0 at A-1/30 [traceable]; TC-31110 x1.0 at A-1/30 [traceable]; TC-31140 x1.0 at A-1/40; TC-31160 x1.0 at A-1/40; TC-31210 x4.0 at A-1/50 [traceable]; TC-31215 x1.0 at A-1/50 [traceable]; TC-31230 x1.0 at A-1/40; TC-90030 x0.05 at pack\nRun history: RUN-1092 [completed] good 460 scrap 10; RUN-1088 [completed] good 480 scrap 0; RUN-1101 [quality_hold] good 210 scrap 4; RUN-1106 [planned] good 0 scrap 0\nDefect history: grease_dose (1 events, 8 units); torque_retention (2 events, 5 units); eol_fail_current (1 events, 4 units); torque_out_of_window (1 events, 2 units)",
+ "latency_ms": 7634,
+ "cached": false
+}

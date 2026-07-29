@@ -1,0 +1,11 @@
+{
+ "answer": "### Finance Exceptions and Actions\n\n1. **Overdue Receivables**:\n   - **INV-5215**: Southbank Truck Group - $24,447.50, 8 days past due.  \n     **Action**: Follow up for payment.\n   - **INV-5217**: AllBrake Distribution - $5,478.00, 10 days past due.  \n     **Action**: Urgent follow-up for payment.\n   - **INV-5218**: Marran Automotive - $22,792.00, 6 days past due.  \n     **Action**: Initiate follow-up for payment.\n\n2. **Draft Invoices Not Yet Sent**:\n   - **INV-5219**: Southbank Truck Group - $0.00.  \n     **Action**: Review and send the draft invoice.\n\n3. **Revenue Blocked Behind Quality Holds**:\n   - Total amount: $50,400.00 across 2 finished lots.  \n     **Action**: Investigate quality issues to release revenue.\n\n4. **Uninvoiced Shipments**:\n   - **Status**: None.  \n     **Action**: No action required.\n\n### Summary\nImmediate actions are required for overdue receivables, particularly for INV-5217 and INV-5215, which are significantly overdue. Additionally, the draft invoice for Southbank Truck Group should be sent promptly. Investigating the quality holds is crucial to release the blocked revenue.",
+ "citations": [],
+ "data_used": {
+  "overdue": 3,
+  "held_value": 50400.0
+ },
+ "digest": "Overdue receivables:\n  INV-5215 Southbank Truck Group $24,447.50 - 8 days past due\n  INV-5217 AllBrake Distribution $5,478.00 - 10 days past due\n  INV-5218 Marran Automotive $22,792.00 - 6 days past due\nDraft invoices not yet sent: INV-5219 Southbank Truck Group $0.00\nRevenue blocked behind quality holds: $50,400.00 across 2 finished lots.\nShipments despatched but not invoiced: none",
+ "latency_ms": 6586,
+ "cached": false
+}

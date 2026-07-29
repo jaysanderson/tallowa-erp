@@ -1,0 +1,69 @@
+{
+ "answer": "### Audit Readiness Assessment\n\n1. **Internal Audit Schedule**\n   - **Requirement**: Internal audit: 12-month schedule covering every process; evidence current within 90 days; zero overdue major findings.\n   - **Live Evidence**: No overdue major findings noted.\n   - **Closure Action**: None required.\n\n2. **Calibration and Services**\n   - **Requirement**: All equipment must be calibrated and serviced as per schedule.\n   - **Live Evidence**: \n     - Overdue calibrations: CMM-02 due 2026-07-17.\n     - Overdue services: PRS-02 due 2026-07-15; INJ-01 due 2026-07-16.\n   - **Closure Action**: Schedule and complete overdue calibrations and services immediately.\n\n3. **Quality Holds**\n   - **Requirement**: No hold older than five working days without a documented disposition.\n   - **Live Evidence**: \n     - Open holds (HLD-0142, HLD-0143, HLD-0144, HLD-0145) aged 3 days.\n   - **Closure Action**: Ensure timely disposition of all open holds to remain compliant.\n\n4. **Critical Defects**\n   - **Requirement**: A critical defect found on shipped product triggers QP-8D and customer notification within 24 hours.\n   - **Live Evidence**: Open critical defects (DEF-0891, DEF-0894) since 2026-07-17 and 2026-07-18.\n   - **Closure Action**: Complete the 8D process for both critical defects and notify customers as required.\n\n5. **Quality Policy Compliance**\n   - **Requirement**: No lot ships with an open hold.\n   - **Live Evidence**: Multiple open holds exist.\n   - **Closure Action**: Resolve open holds before any shipments occur.\n\n6. **Training and Certification**\n   - **Requirement**: All personnel must have current qualifications.\n   - **Live Evidence**: Expired certification for Harry Vane (TQ-1) lapsed 2025-08-05.\n   - **Closure Action**: Renew certification for Harry Vane immediately.\n\n### Summary\nThe plant has several gaps that need addressing before the quality audit, including overdue calibrations and services, open critical defects, and expired certifications. Immediate actions are required to ensure compliance with the quality manual's commitments.",
+ "citations": [
+  {
+   "rid": "58e58b637d3a4e06a9ce5988996a5808",
+   "file": "qm-01-quality-manual.md",
+   "title": "qm-01-quality-manual.md",
+   "score": 0.006564249284565449,
+   "snippet": " - Internal audit: 12-month schedule covering every process; evidence current   within 90 days; zero overdue major findings.     ## Authority   The Plant Manager owns the QMS. The Quality Manager may stop any line, quarantine   any lot and hold any shipment without further approv"
+  },
+  {
+   "rid": "58e58b637d3a4e06a9ce5988996a5808",
+   "file": "qm-01-quality-manual.md",
+   "title": "qm-01-quality-manual.md",
+   "score": 0.0005233756965026259,
+   "snippet": " stations making them require current qualification and 100 per cent data capture.     ## Key indicators and thresholds   - First time through (FTT): 96.5 per cent target per line, reviewed weekly.   - Customer PPM: under 25 PPM for safety-critical families (braking), under 50 PP"
+  },
+  {
+   "rid": "2dce0ab511654cc5864589ae6a2edd74",
+   "file": "qp-spc-control-plans.md",
+   "title": "qp-spc-control-plans.md",
+   "score": 0.00046190584544092417,
+   "snippet": " - Capability: Cpk at least 1.67 on SC characteristics, at least 1.33 on other   controlled characteristics, computed monthly per part and machine. A capability   breach opens a quality investigation and may not be closed by widening limits. \n"
+  },
+  {
+   "rid": "c3ae59dd72724bab884488b83e2559a1",
+   "file": "qp-8d-containment.md",
+   "title": "qp-8d-containment.md",
+   "score": 0.00039977103006094694,
+   "snippet": " 4. Notify the raw-material supplier the same day where a supplier lot is implicated;   invoke the SQA-STD obligations (sorting support, 8D in 10 working days, costs).   5. The Quality Manager sets the containment level within 48 hours: \n"
+  },
+  {
+   "rid": "2dce0ab511654cc5864589ae6a2edd74",
+   "file": "qp-spc-control-plans.md",
+   "title": "qp-spc-control-plans.md",
+   "score": 0.00019716942915692925,
+   "snippet": "   ## Reaction plan basics   Contain first (parts since last good check into quarantine), then correct the   process, then verify with five consecutive good subgroups before releasing the   line. All three steps are recorded; the shift quality inspector countersigns. \n"
+  },
+  {
+   "rid": "097560fb9652493dac7c84c7d41f01f8",
+   "file": "qp-ppap.md",
+   "title": "qp-ppap.md",
+   "score": 0.00018961740715894848,
+   "snippet": "   ## Rules   - The PSW is signed by the Quality Manager only after every element passes.   - Interim approval is an exception with an expiry date and an open-point plan; it   is tracked on the compliance dashboard and never extended silently. \n"
+  },
+  {
+   "rid": "cdecd24b614b48dca05da65ca903a983",
+   "file": "qm-04-nonconforming-product.md",
+   "title": "qm-04-nonconforming-product.md",
+   "score": 0.00013135180051904172,
+   "snippet": " - Major : function, fit or durability affected; must not ship.   - Minor : cosmetic or non-functional; ships only with use-as-is disposition.     ## Quality holds   A hold freezes a production run, a lot or a shipment. While open, the held item   cannot be issued, processed, pac"
+  },
+  {
+   "rid": "cdecd24b614b48dca05da65ca903a983",
+   "file": "qm-04-nonconforming-product.md",
+   "title": "qm-04-nonconforming-product.md",
+   "score": 6.402005965355784e-05,
+   "snippet": "   ## Severity rules   - Critical : a defect that could affect braking function, steering, structural   integrity or high-voltage safety in the customer's vehicle. A critical defect   found on shipped product triggers QP-8D and customer notification within 24 hours. \n"
+  }
+ ],
+ "data_used": {
+  "cal_overdue": 1,
+  "cert_expired": 1,
+  "open_holds": 4
+ },
+ "digest": "Audit-readiness position (live):\nOverdue calibrations: CMM-02 CMM - quality room 2 due 2026-07-17\nOverdue services: PRS-02 400t blanking press due 2026-07-15; INJ-01 HV connector housing injection moulding cell due 2026-07-16\nExpired certifications: Harry Vane TQ-1 lapsed 2025-08-05\nOpen hold HLD-0142 aged 3 days: Suspect thread rolling - torque retention failures in plant and at Ellandra (DEF-0891, DEF\nOpen hold HLD-0143 aged 3 days: Contains fastener lot WF-2261 - 80 unshipped units blocked pending 100 per cent re-torque \nOpen hold HLD-0144 aged 3 days: Contains fastener lot WF-2261 - 220 unshipped units blocked pending 100 per cent re-torque\nOpen hold HLD-0145 aged 3 days: Run consumed suspect lot WF-2261 - held at station 60 pending containment disposition\nOpen critical defect (8D running): DEF-0891 since 2026-07-17\nOpen critical defect (8D running): DEF-0894 since 2026-07-18",
+ "latency_ms": 21326,
+ "cached": false
+}

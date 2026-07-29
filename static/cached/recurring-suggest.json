@@ -1,0 +1,11 @@
+{
+ "answer": "Based on the live plant data, the following repeat ordering patterns should be considered for standing release schedules:\n\n1. **Ellandra Motors (TC-30412)**  \n   - **Current Orders**: 4 orders, 1600 units (2026-06-09 to 2026-07-16)  \n   - **Suggested Schedule**: Weekly release of 400 units  \n   - **Working-Capital Trade-off**: This aligns with the existing EPB weekly release, ensuring consistent supply and reducing stockouts.\n\n2. **Marran Automotive (TC-70210)**  \n   - **Current Orders**: 2 orders, 1400 units (2026-06-23 to 2026-07-12)  \n   - **Suggested Schedule**: Fortnightly release of 700 units  \n   - **Working-Capital Trade-off**: This matches the existing Marran busbar fortnightly release, optimising inventory turnover while maintaining service levels.\n\n3. **Southbank Truck Group (TC-20110)**  \n   - **Current Orders**: 2 orders, 700 units (2026-06-26 to 2026-07-10)  \n   - **Suggested Schedule**: Monthly release of 350 units  \n   - **Working-Capital Trade-off**: This complements the existing monthly schedule, ensuring steady supply without overcommitting resources.\n\nImplementing these standing schedules will enhance predictability in production and inventory management, ultimately supporting operational efficiency.",
+ "citations": [],
+ "data_used": {
+  "patterns": 3,
+  "existing": 5
+ },
+ "digest": "Repeat ordering patterns:\n  Ellandra Motors orders TC-30412 repeatedly: 4 orders, 1600 units between 2026-06-09 and 2026-07-16\n  Marran Automotive orders TC-70210 repeatedly: 2 orders, 1400 units between 2026-06-23 and 2026-07-12\n  Southbank Truck Group orders TC-20110 repeatedly: 2 orders, 700 units between 2026-06-26 and 2026-07-10\nExisting schedules: Ellandra EPB weekly release (TC-30412 for Ellandra Motors); Marran busbar fortnightly release (TC-70210 for Marran Automotive); Southbank control arm monthly (TC-20110 for Southbank Truck Group); EPB housing internal replenishment (TC-31020 for internal); Pin set heat-treat replenishment (TC-21150 for internal)",
+ "latency_ms": 7374,
+ "cached": false
+}

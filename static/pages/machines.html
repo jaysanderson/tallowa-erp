@@ -1,0 +1,37 @@
+<div class="card"><h3>Machines</h3><div id="rows"></div></div>
+<div class="card"><h3>Tooling - dies, fixtures, jigs, gauges</h3><div id="tools"></div></div>
+<div class="grid2">
+  <div id="ai1"></div><div id="ai2"></div>
+</div>
+<div style="margin-top:16px" id="ai3"></div>
+<script>
+(async function(){
+  const rows=await api('/api/machines/');
+  table('rows', [
+    {k:'asset_no', label:'Asset', fmt:v=>'<span class="mono">'+v+'</span>'},
+    {k:'name', label:'Machine'},
+    {k:'type', label:'Type', fmt:v=>esc(String(v).replace(/_/g,' '))},
+    {k:'line_code', label:'Line', fmt:v=>v||'plant'},
+    {k:'make', label:'Make'},
+    {k:'status', label:'Status', fmt:badge},
+    {k:'next_service_due', label:'Service due', fmt:(v,r)=>dt(v)+' '+badge(r.service_state)},
+    {k:'next_calibration_due', label:'Calibration due', fmt:(v,r)=>dt(v)+' '+badge(r.calibration_state)},
+  ], rows);
+  const tools=await api('/api/tooling/');
+  table('tools', [
+    {k:'tool_no', label:'Tool', fmt:v=>'<span class="mono">'+v+'</span>'},
+    {k:'name', label:'Description'},
+    {k:'type', label:'Type'},
+    {k:'part_no', label:'Makes part', fmt:v=>v?'<a class="mono" style="color:#B04E12" href="/parts/'+v+'">'+v+'</a>':'-'},
+    {k:'line_code', label:'Line'},
+    {k:'life_used_pct', label:'Shot life used', cls:'num', fmt:v=>v==null?'-':'<b style="color:'+(v>90?'#B3352B':v>75?'#B26A00':'#2E7D4F')+'">'+v+'%</b>'},
+    {k:'next_service_due', label:'Service due', fmt:dt},
+  ], tools);
+})();
+aiPanel('ai1', {endpoint:'/api/ai/proactive-maintenance', title:'Maintenance priorities',
+  tag:'AGENTIC RANKING', button:'Prioritise', golden:'proactive-maintenance'});
+aiPanel('ai2', {endpoint:'/api/ai/asset-service', title:'Tooling service plan',
+  tag:'AGENTIC RANKING', button:'Plan tooling service', golden:'asset-service'});
+aiPanel('ai3', {endpoint:'/api/ai/calibration-compliance', title:'Calibration compliance',
+  tag:'GROUNDED AI - CITED', button:'Assess calibration', golden:'calibration-compliance'});
+</script>

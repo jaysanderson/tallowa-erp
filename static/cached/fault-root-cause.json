@@ -1,0 +1,69 @@
+{
+ "answer": "### Defect Pareto Analysis\n\nThe defect Pareto for the last 90 days indicates the following:\n\n1. **Burr Height**: 2 events, 54 units\n2. **Resin Moisture Void**: 3 events, 47 units\n3. **Plating Thickness**: 1 event, 26 units\n4. **Hardness Low**: 1 event, 24 units\n5. **Dimensional Variance**: 2 events, 19 units\n6. **Plating Blister**: 1 event, 18 units\n7. **Moulding Short**: 1 event, 15 units\n8. **Grease Dose**: 1 event, 8 units\n9. **Short Shipment**: 1 event, 6 units\n10. **Torque Retention**: 2 events, 5 units (2 critical)\n11. **Bore Oversize**: 1 event, 5 units\n12. **EOL Fail Current**: 1 event, 4 units\n13. **Crack Detect**: 1 event, 3 units (1 critical)\n14. **Torque Out of Window**: 1 event, 2 units\n15. **Surface Corrosion**: 1 event, 2 units\n16. **Label Error**: 1 event, 2 units\n17. **Packing Mixed Lot**: 1 event, 1 unit\n18. **COA Missing**: 1 event, 1 unit\n19. **Thread Profile**: 1 event, 0 units\n20. **Spindle Vibration**: 1 event, 0 units\n\n### Root-Cause Hypothesis Chain for Torque Retention\n\n1. **Event Identification**: Two critical events related to torque retention were recorded:\n   - DEF-0891: 3 actuators with loosened output fastener at fitment re-torque check.\n   - DEF-0894: 2 further loosened joints during re-test of held run units.\n\n2. **Suspected Cause**: The common raw lot (WF-2261) used in both events suggests a potential issue with the thread rolling process or the assembly procedure.\n\n3. **Impact Assessment**: The loosened fasteners could affect the performance and safety of the actuators, leading to critical defects.\n\n### Investigation Plan (8D Procedure)\n\n1. **D1: Team Formation**: Assemble a cross-functional team including quality, production, and engineering representatives.\n\n2. **D2: Problem Description**: Document the critical defects related to torque retention, including affected units and customer impact.\n\n3. **D3: Containment Actions**:\n   - Quarantine raw lot WF-2261 and any finished products made from it.\n   - Record defects in the defect register immediately.\n\n4. **D4: Root Cause Analysis**:\n   - Conduct a backward trace using QM-07 to identify all production runs that consumed raw lot WF-2261.\n   - Investigate the thread rolling process and assembly procedures for potential deviations or failures.\n\n5. **D5-D6: Corrective Action**:\n   - Select and implement corrective actions based on findings (e.g., process adjustments, additional training).\n   - Ensure all affected units are inspected and reworked if necessary.\n\n6. **D7-D8: Prevent Recurrence and Closure**:\n   - Develop a preventive action plan to address identified root causes.\n   - Document all actions taken and close the 8D report within the specified timeframes.\n\n### Summary\n\nThe defect Pareto highlights torque retention as a critical issue, with a clear need for investigation into the raw lot and associated processes. The 8D procedure provides a structured approach to address and resolve the identified defects effectively.",
+ "citations": [
+  {
+   "rid": "c3ae59dd72724bab884488b83e2559a1",
+   "file": "qp-8d-containment.md",
+   "title": "qp-8d-containment.md",
+   "score": 0.027742892503738403,
+   "snippet": " - D4 (root cause verified): within 10 working days.   - D5-D6 (corrective action selected and implemented): within 20 working days.   - D7-D8 (prevent recurrence, close): within 30 working days.     ## Containment (D3) for a suspect lot   1. Quarantine remaining suspect stock ev"
+  },
+  {
+   "rid": "cdecd24b614b48dca05da65ca903a983",
+   "file": "qm-04-nonconforming-product.md",
+   "title": "qm-04-nonconforming-product.md",
+   "score": 0.0064882696606218815,
+   "snippet": " 3. Record the defect in the defect register the same shift: part number, lot number,   production run, machine, station, description, severity (minor, major, critical).     ## Disposition   A quality inspector assigns one of four dispositions: \n"
+  },
+  {
+   "rid": "c3ae59dd72724bab884488b83e2559a1",
+   "file": "qp-8d-containment.md",
+   "title": "qp-8d-containment.md",
+   "score": 0.0024822766426950693,
+   "snippet": "   ## Records   Every 8D is registered with the defect number, the affected raw and finished lots   and the shipment list attached. Mock containment drills run quarterly.       "
+  },
+  {
+   "rid": "c3ae59dd72724bab884488b83e2559a1",
+   "file": "qp-8d-containment.md",
+   "title": "qp-8d-containment.md",
+   "score": 0.0023504828568547964,
+   "snippet": " 2. Run the QM-07 trace. Backward: bound the suspect window by raw lot and run.   Forward: list every finished lot, shipment, customer purchase order and   receiving plant affected.   3. Sort or certify everything inside the window: unshipped stock is 100 per cent   inspected bef"
+  },
+  {
+   "rid": "3710dc0020b3495b9b5e6f89fb231071",
+   "file": "sqa-std-supplier-quality.md",
+   "title": "sqa-std-supplier-quality.md",
+   "score": 0.002174225402995944,
+   "snippet": " - Delivery: 98 per cent on-time-in-full against the confirmed date.   - A missed level: quality development plan; two consecutive missed quarters:   new-business hold.     ## Nonconformance and escapes   On a confirmed lot escape the supplier: responds with containment within 24"
+  },
+  {
+   "rid": "a5fe80773c924ee49b41604a36a9b883",
+   "file": "qm-07-traceability.md",
+   "title": "qm-07-traceability.md",
+   "score": 0.0013198634842410684,
+   "snippet": " - Forward trace (raw lot to customers): every run that consumed the raw lot,   every finished lot those runs produced, current location of unshipped stock, and   every shipment, customer purchase order and receiving plant for shipped stock. \n"
+  },
+  {
+   "rid": "c3ae59dd72724bab884488b83e2559a1",
+   "file": "qp-8d-containment.md",
+   "title": "qp-8d-containment.md",
+   "score": 0.0009146137163043022,
+   "snippet": "# QP-8D Problem Solving, Containment and Customer Escapes (Rev D)     Invoked for any critical defect, any confirmed out-of-spec raw-material lot, any   customer escape (defective parts found at or beyond the customer's dock), or any   defect trend crossing its control limit. Fol"
+  },
+  {
+   "rid": "cdecd24b614b48dca05da65ca903a983",
+   "file": "qm-04-nonconforming-product.md",
+   "title": "qm-04-nonconforming-product.md",
+   "score": 0.000643685576505959,
+   "snippet": " - Quarantine lot - where a lot-level cause is suspected, the whole lot is held   and the traceability procedure QM-07 is invoked; if any of the lot has shipped,   QP-8D containment starts immediately. \n"
+  }
+ ],
+ "data_used": {
+  "codes": 20,
+  "top_code": "burr_height",
+  "focus": "torque_retention"
+ },
+ "digest": "Defect Pareto, last 90 days (code, events, affected units, critical):\n  burr_height: 2 events, 54 units, 0 critical\n  resin_moisture_void: 3 events, 47 units, 0 critical\n  plating_thickness: 1 events, 26 units, 0 critical\n  hardness_low: 1 events, 24 units, 0 critical\n  dimensional_variance: 2 events, 19 units, 0 critical\n  plating_blister: 1 events, 18 units, 0 critical\n  moulding_short: 1 events, 15 units, 0 critical\n  grease_dose: 1 events, 8 units, 0 critical\n  short_shipment: 1 events, 6 units, 0 critical\n  torque_retention: 2 events, 5 units, 2 critical\n  bore_oversize: 1 events, 5 units, 0 critical\n  eol_fail_current: 1 events, 4 units, 0 critical\n  crack_detect: 1 events, 3 units, 1 critical\n  torque_out_of_window: 1 events, 2 units, 0 critical\n  surface_corrosion: 1 events, 2 units, 0 critical\n  label_error: 1 events, 2 units, 0 critical\n  packing_mixed_lot: 1 events, 1 units, 0 critical\n  coa_missing: 1 events, 1 units, 0 critical\n  thread_profile: 1 events, 0 units, 0 critical\n  spindle_vibration: 1 events, 0 units, 0 critical\nDetail for code 'torque_retention':\n  DEF-0891 [critical/open] 2026-07-17 run=- raw lot=WF-2261 machine=- customer=Ellandra Motors: Ellandra line fallout: 3 actuators with loosened output fastener at fitment re-torque check\n  DEF-0894 [critical/open] 2026-07-18 run=RUN-1101 raw lot=WF-2261 machine=TST-02 customer=-: Re-test of held run units: 2 further loosened joints - thread rolling suspect on lot WF-2261",
+ "latency_ms": 11591,
+ "cached": false
+}

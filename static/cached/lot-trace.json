@@ -1,0 +1,198 @@
+{
+ "answer": "### Exposure Narration\n\nThe exposure involves raw lot WF-2261, which is currently in quarantine due to suspect thread rolling linked to torque retention failures. The following details outline the affected runs, finished lots, quantities, shipments, and customer plants:\n\n- **Raw Lot**: WF-2261\n- **Remaining Stock**: 26,400 of 40,000 units in quarantine.\n- **Runs Consumed**:\n  - **RUN-1088**: 480 units used (finished lot TC-A-4471).\n  - **RUN-1092**: 470 units used (finished lot TC-A-4472).\n  - **RUN-1101**: 214 units used (currently on quality hold).\n  \n- **Finished Lots**:\n  - **TC-A-4471**: 480 produced, 400 shipped, 80 on hand (status: hold - OPEN HOLD HLD-0143).\n  - **TC-A-4472**: 460 produced, 240 shipped, 220 on hand (status: hold - OPEN HOLD HLD-0144).\n\n- **Shipments**:\n  - **SHP-0341**: 400 units of lot TC-A-4471 delivered to Ellandra Motors - Ellandra Corio Assembly (Corio), PO ELL-PO-99120.\n  - **SHP-0347**: 240 units of lot TC-A-4472 delivered to Ellandra Motors - Ellandra Westhaven Plant (Werribee), PO ELL-PO-99188.\n\n### Summary of Exposure\n- **Total Units Shipped**: 640 units (400 to Corio, 240 to Werribee).\n- **Total Units Blocked On Site**: 300 units (80 from TC-A-4471 and 220 from TC-A-4472).\n\n### Containment Actions and Obligations\n\n1. **Quarantine**: All remaining stock of lot WF-2261 is quarantined in all locations (raw store, line-side, work-in-progress, finished store, packed-not-shipped).\n\n2. **Supplier Notification**: The raw-material supplier must be notified the same day regarding the implicated lot.\n\n3. **Containment Procedure (QP-8D)**:\n   - The supplier must respond with containment actions within 24 hours.\n   - They are obligated to support sorting at Tallowa or at the customer sites.\n   - A verified 8D report must be provided within 10 working days.\n   - The supplier bears the costs for sorting, replacement freight, and any customer campaign costs caused by their lot.\n\n4. **Customer Notification**: The customer must receive a containment statement within 24 hours of the confirmed lot escape.\n\n5. **Quality Manager's Role**: The Quality Manager will set the containment level within 48 hours.\n\n6. **Record Keeping**: Every 8D must be registered with the defect number, affected raw and finished lots, and the shipment list attached.\n\nThese containment actions are critical to managing the exposure and ensuring compliance with the established procedures.",
+ "citations": [
+  {
+   "rid": "c3ae59dd72724bab884488b83e2559a1",
+   "file": "qp-8d-containment.md",
+   "title": "qp-8d-containment.md",
+   "score": 0.13603350520133972,
+   "snippet": " - D4 (root cause verified): within 10 working days.   - D5-D6 (corrective action selected and implemented): within 20 working days.   - D7-D8 (prevent recurrence, close): within 30 working days.     ## Containment (D3) for a suspect lot   1. Quarantine remaining suspect stock ev"
+  },
+  {
+   "rid": "cdecd24b614b48dca05da65ca903a983",
+   "file": "qm-04-nonconforming-product.md",
+   "title": "qm-04-nonconforming-product.md",
+   "score": 0.10687688738107681,
+   "snippet": " - Quarantine lot - where a lot-level cause is suspected, the whole lot is held   and the traceability procedure QM-07 is invoked; if any of the lot has shipped,   QP-8D containment starts immediately. \n"
+  },
+  {
+   "rid": "3710dc0020b3495b9b5e6f89fb231071",
+   "file": "sqa-std-supplier-quality.md",
+   "title": "sqa-std-supplier-quality.md",
+   "score": 0.01737566478550434,
+   "snippet": " - Delivery: 98 per cent on-time-in-full against the confirmed date.   - A missed level: quality development plan; two consecutive missed quarters:   new-business hold.     ## Nonconformance and escapes   On a confirmed lot escape the supplier: responds with containment within 24"
+  },
+  {
+   "rid": "c3ae59dd72724bab884488b83e2559a1",
+   "file": "qp-8d-containment.md",
+   "title": "qp-8d-containment.md",
+   "score": 0.01572399027645588,
+   "snippet": "# QP-8D Problem Solving, Containment and Customer Escapes (Rev D)     Invoked for any critical defect, any confirmed out-of-spec raw-material lot, any   customer escape (defective parts found at or beyond the customer's dock), or any   defect trend crossing its control limit. Fol"
+  },
+  {
+   "rid": "c3ae59dd72724bab884488b83e2559a1",
+   "file": "qp-8d-containment.md",
+   "title": "qp-8d-containment.md",
+   "score": 0.015365341678261757,
+   "snippet": " 4. Notify the raw-material supplier the same day where a supplier lot is implicated;   invoke the SQA-STD obligations (sorting support, 8D in 10 working days, costs).   5. The Quality Manager sets the containment level within 48 hours: \n"
+  },
+  {
+   "rid": "c3ae59dd72724bab884488b83e2559a1",
+   "file": "qp-8d-containment.md",
+   "title": "qp-8d-containment.md",
+   "score": 0.011777843348681927,
+   "snippet": "   ## Records   Every 8D is registered with the defect number, the affected raw and finished lots   and the shipment list attached. Mock containment drills run quarterly.       "
+  },
+  {
+   "rid": "c3ae59dd72724bab884488b83e2559a1",
+   "file": "qp-8d-containment.md",
+   "title": "qp-8d-containment.md",
+   "score": 0.011419614776968956,
+   "snippet": "qp-8d-containment.md"
+  },
+  {
+   "rid": "3710dc0020b3495b9b5e6f89fb231071",
+   "file": "sqa-std-supplier-quality.md",
+   "title": "sqa-std-supplier-quality.md",
+   "score": 0.009055264294147491,
+   "snippet": "   ## Lot requirements   - Every shipment of a traceable input carries the supplier lot number on each   container label and a certificate of analysis (CoA) per lot.   - Maximum one lot per container; mixed-lot containers are rejected at receiving. \n"
+  }
+ ],
+ "data_used": {
+  "lot": "WF-2261",
+  "direction": "forward",
+  "trace": {
+   "raw_lot": {
+    "id": 6,
+    "lot_no": "WF-2261",
+    "part_id": 16,
+    "supplier_id": 3,
+    "po_id": 4,
+    "received_on": "2026-06-19",
+    "qty_received": 40000.0,
+    "qty_remaining": 26400.0,
+    "coa_ref": "CoA-WF-2261",
+    "status": "quarantine",
+    "part_no": "TC-31215",
+    "part_name": "Output fastener M8x1 - thread rolled",
+    "supplier_name": "Warrigal Fasteners"
+   },
+   "hold": {
+    "hold_no": "HLD-0142",
+    "reason": "Suspect thread rolling - torque retention failures in plant and at Ellandra (DEF-0891, DEF-0894). QP-8D containment open.",
+    "status": "open",
+    "placed_at": "2026-07-18T08:40:00Z"
+   },
+   "runs": [
+    {
+     "run_no": "RUN-1088",
+     "status": "completed",
+     "qty_good": 480.0,
+     "qty_scrap": 0.0,
+     "completed_at": "2026-06-28T09:00:00Z",
+     "consumed_qty": 480.0,
+     "part_no": "TC-30412",
+     "part_name": "EPB-40 electric park brake actuator"
+    },
+    {
+     "run_no": "RUN-1092",
+     "status": "completed",
+     "qty_good": 460.0,
+     "qty_scrap": 10.0,
+     "completed_at": "2026-07-07T09:00:00Z",
+     "consumed_qty": 470.0,
+     "part_no": "TC-30412",
+     "part_name": "EPB-40 electric park brake actuator"
+    },
+    {
+     "run_no": "RUN-1101",
+     "status": "quality_hold",
+     "qty_good": 210.0,
+     "qty_scrap": 4.0,
+     "completed_at": null,
+     "consumed_qty": 214.0,
+     "part_no": "TC-30412",
+     "part_name": "EPB-40 electric park brake actuator"
+    }
+   ],
+   "finished_lots": [
+    {
+     "id": 7,
+     "lot_no": "TC-A-4471",
+     "part_id": 1,
+     "run_id": 7,
+     "qty_produced": 480.0,
+     "qty_shipped": 400.0,
+     "produced_on": "2026-06-28",
+     "status": "hold",
+     "location_id": 3,
+     "part_no": "TC-30412",
+     "run_no": "RUN-1088",
+     "open_hold": {
+      "hold_no": "HLD-0143",
+      "reason": "Contains fastener lot WF-2261 - 80 unshipped units blocked pending 100 per cent re-torque and re-test",
+      "status": "open"
+     }
+    },
+    {
+     "id": 9,
+     "lot_no": "TC-A-4472",
+     "part_id": 1,
+     "run_id": 9,
+     "qty_produced": 460.0,
+     "qty_shipped": 240.0,
+     "produced_on": "2026-07-07",
+     "status": "hold",
+     "location_id": 3,
+     "part_no": "TC-30412",
+     "run_no": "RUN-1092",
+     "open_hold": {
+      "hold_no": "HLD-0144",
+      "reason": "Contains fastener lot WF-2261 - 220 unshipped units blocked pending 100 per cent re-torque and re-test",
+      "status": "open"
+     }
+    }
+   ],
+   "shipments": [
+    {
+     "qty": 400.0,
+     "shp_no": "SHP-0341",
+     "shipped_on": "2026-07-01",
+     "status": "delivered",
+     "customer_name": "Ellandra Motors",
+     "ship_to_name": "Ellandra Corio Assembly",
+     "city": "Corio",
+     "so_no": "SO-3411",
+     "customer_po": "ELL-PO-99120",
+     "finished_lot": "TC-A-4471"
+    },
+    {
+     "qty": 240.0,
+     "shp_no": "SHP-0347",
+     "shipped_on": "2026-07-09",
+     "status": "delivered",
+     "customer_name": "Ellandra Motors",
+     "ship_to_name": "Ellandra Westhaven Plant",
+     "city": "Werribee",
+     "so_no": "SO-3415",
+     "customer_po": "ELL-PO-99188",
+     "finished_lot": "TC-A-4472"
+    }
+   ],
+   "exposure": {
+    "shipped_qty": 640.0,
+    "unshipped_qty": 300.0,
+    "customers": [
+     "Ellandra Motors"
+    ],
+    "ship_tos": [
+     "Ellandra Corio Assembly",
+     "Ellandra Westhaven Plant"
+    ]
+   }
+  }
+ },
+ "digest": "FORWARD TRACE of raw lot WF-2261 - TC-31215 Output fastener M8x1 - thread rolled from Warrigal Fasteners, received 2026-06-19, 26400 of 40000 remaining, status quarantine.\nHold HLD-0142 [open]: Suspect thread rolling - torque retention failures in plant and at Ellandra (DEF-0891, DEF-0894). QP-8D containment open.\nConsumed by RUN-1088 (TC-30412 EPB-40 electric park brake actuator, status completed): 480 units used.\nConsumed by RUN-1092 (TC-30412 EPB-40 electric park brake actuator, status completed): 470 units used.\nConsumed by RUN-1101 (TC-30412 EPB-40 electric park brake actuator, status quality_hold): 214 units used.\nFinished lot TC-A-4471 from RUN-1088: 480 produced, 400 shipped, 80 on hand, status hold - OPEN HOLD HLD-0143\nFinished lot TC-A-4472 from RUN-1092: 460 produced, 240 shipped, 220 on hand, status hold - OPEN HOLD HLD-0144\nShipment SHP-0341 (2026-07-01, delivered): 400 units of lot TC-A-4471 to Ellandra Motors - Ellandra Corio Assembly (Corio), their PO ELL-PO-99120\nShipment SHP-0347 (2026-07-09, delivered): 240 units of lot TC-A-4472 to Ellandra Motors - Ellandra Westhaven Plant (Werribee), their PO ELL-PO-99188\nEXPOSURE: 640 units shipped to Ellandra Corio Assembly, Ellandra Westhaven Plant; 300 units unshipped and blocked on site.",
+ "latency_ms": 13406,
+ "cached": false
+}

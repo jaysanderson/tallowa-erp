@@ -1,0 +1,20 @@
+<div class="card"><h3>Invoices</h3><div id="rows"></div></div>
+<div id="dun"></div>
+<script>
+(async function(){
+  const rows=await api('/api/invoices/');
+  table('rows', [
+    {k:'inv_no', label:'Invoice', fmt:v=>'<span class="mono">'+v+'</span>'},
+    {k:'customer_name', label:'Customer'},
+    {k:'status', label:'Status', fmt:badge},
+    {k:'issued_on', label:'Issued', fmt:dt},
+    {k:'due_on', label:'Due', fmt:dt},
+    {k:'subtotal', label:'Subtotal', cls:'num', fmt:money},
+    {k:'gst', label:'GST', cls:'num', fmt:money},
+    {k:'total', label:'Total', cls:'num', fmt:money},
+    {k:'inv_no', label:'', fmt:v=>'<button class="btn ghost" onclick="event.stopPropagation();window.open(\'/api/invoices/'+v+'/print?token=\'+tok())">Print</button>'},
+  ], rows);
+})();
+aiPanel('dun', {endpoint:'/api/ai/dunning-draft', title:'Payment reminder drafts',
+  tag:'GROUNDED DRAFT', button:'Draft reminders', golden:'dunning-draft'});
+</script>

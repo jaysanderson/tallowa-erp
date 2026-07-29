@@ -1,0 +1,41 @@
+<div class="card"><h3>Purchase orders</h3><div id="rows"></div></div>
+<div class="card">
+  <h3>Draft a PO from a supplier document <span class="ai-tag">DOCUMENT AI</span></h3>
+  <div class="hint" style="margin-bottom:8px">Paste a supplier quotation or order confirmation - the assistant extracts a structured PO draft and matches it to the part catalogue and supplier record.</div>
+  <textarea id="doc" style="min-height:110px">QUOTATION - Warrigal Fasteners Pty Ltd
+Ref WF-Q-4471, valid 30 days.
+Item 1: TC-31215 output fastener M8x1 thread rolled, class 10.9 - 24,000 pcs @ $0.37 each
+Item 2: TC-31210 case screw M5 single-use - 60,000 pcs @ $0.085 each
+Delivery 10 working days from order. One lot per container, CoA per lot including thread-rolling parameters per SQA-STD.</textarea>
+  <div class="row" style="margin-top:8px"><button class="btn orange" id="extract">Extract PO draft</button></div>
+  <div id="draft"></div>
+</div>
+<script>
+(async function(){
+  const rows=await api('/api/purchase-orders/');
+  table('rows', [
+    {k:'po_no', label:'PO', fmt:v=>'<span class="mono">'+v+'</span>'},
+    {k:'supplier_name', label:'Supplier'},
+    {k:'status', label:'Status', fmt:(v,r)=>badge(v)+(r.late?' <span class="b b-red">late</span>':'')},
+    {k:'ordered_on', label:'Ordered', fmt:dt},
+    {k:'expected_date', label:'Expected', fmt:dt},
+    {k:'received_on', label:'Received', fmt:dt},
+    {k:'total', label:'Total', cls:'num', fmt:money},
+  ], rows, {link:r=>'/purchase-orders/'+r.po_no});
+})();
+document.getElementById('extract').onclick=async()=>{
+  const out=document.getElementById('draft');
+  out.innerHTML='<div class="shimmer"><span class="spin"></span>Extracting...</div>';
+  try{
+    const d=await api('/api/ai/extract-document',{method:'POST',
+      body:{text:document.getElementById('doc').value, golden:'extract-document'}});
+    if(!d.draft){ out.innerHTML='<div class="empty">Nothing extractable found in that text.</div>'; return; }
+    const dr=d.draft;
+    out.innerHTML='<div class="ai-panel" style="margin-top:12px"><h3>PO draft <span class="ai-tag">EXTRACTED</span></h3>'+
+      '<div class="hint">Supplier: <b>'+esc(dr.supplier_name)+'</b>'+(dr.matched_supplier?' &rarr; matched to record <span class="mono">'+dr.matched_supplier.code+'</span> '+esc(dr.matched_supplier.name):' (no supplier record matched)')+' &middot; currency '+esc(dr.currency||'AUD')+'</div>'+
+      '<table style="margin-top:8px"><thead><tr><th>Part</th><th>Description</th><th class="num">Qty</th><th class="num">Unit</th><th>Catalogue</th></tr></thead><tbody>'+
+      (dr.items||[]).map(i=>'<tr><td><span class="mono">'+esc(i.part_no)+'</span></td><td>'+esc(i.description)+'</td><td class="num">'+n0(i.qty)+'</td><td class="num">'+money(i.unit_price)+'</td><td>'+(i.matched_part?'<span class="b b-green">matched: '+esc(i.catalogue_name||'')+'</span>':'<span class="b b-amber">not in catalogue</span>')+'</td></tr>').join('')+
+      '</tbody></table>'+(dr.notes?'<div class="grounding">Commitments noted: '+esc(dr.notes)+'</div>':'')+'</div>';
+  }catch(e){ out.innerHTML='<div class="empty">Extraction failed: '+esc(e.message)+'</div>'; }
+};
+</script>

@@ -1,0 +1,62 @@
+<div class="card">
+  <h3>Generate a build playbook <span class="ai-tag">GROUNDED AI - CITED</span></h3>
+  <div class="hint" style="margin-bottom:8px">A run-ready standard-work summary for any part - process steps and control points from the released work instructions (cited), plus watch-outs from what past runs of that part actually hit.</div>
+  <div class="row">
+    <select id="part" style="width:420px"></select>
+    <button class="btn orange" id="go">Generate playbook</button>
+    <button class="btn ghost" id="save" style="display:none">Save as template</button>
+  </div>
+  <div id="out"></div>
+</div>
+<div class="card">
+  <h3>Saved templates</h3>
+  <div id="templates"></div>
+</div>
+<script>
+let lastBody='', lastPart='';
+const out=document.getElementById('out');
+(async function(){
+  const parts=await api('/api/parts/?category=finished');
+  const comp=await api('/api/parts/?category=component');
+  const sel=document.getElementById('part');
+  sel.innerHTML=parts.concat(comp.filter(p=>['TC-31020','TC-21150','TC-21170'].includes(p.part_no)))
+    .map(p=>'<option value="'+p.part_no+'">'+p.part_no+' - '+esc(p.name)+'</option>').join('');
+  loadTemplates();
+})();
+async function gen(){
+  const part_no=document.getElementById('part').value;
+  out.innerHTML='<div class="shimmer"><span class="spin"></span>Grounding in work instructions and run history...</div>';
+  document.getElementById('save').style.display='none';
+  try{
+    const d=await api('/api/ai/playbook',{method:'POST',body:{part_no, golden:'playbook'}});
+    if(d.empty||!d.answer){ out.innerHTML='<div class="empty">No grounded playbook available for that part.</div>'; return; }
+    lastBody=d.answer; lastPart=part_no;
+    out.innerHTML='<div class="ai-answer">'+md(d.answer)+'</div>'+citesHtml(d.citations)+
+      '<div class="grounding">Grounded in '+(d.citations||[]).length+' document extract(s) and live history - runs: '+(d.data_used.runs||0)+', defect codes: '+(d.data_used.defect_codes||0)+', BOM lines: '+(d.data_used.bom_lines||0)+(d.cached?' &middot; cached result':'')+'</div>';
+    document.getElementById('save').style.display='inline-block';
+  }catch(e){ out.innerHTML='<div class="empty">Could not generate: '+esc(e.message)+'</div>'; }
+}
+async function loadTemplates(){
+  const t=await api('/api/ai/playbook/templates');
+  table('templates', [
+    {k:'title', label:'Title'},
+    {k:'part_no', label:'Part', fmt:v=>'<span class="mono">'+esc(v)+'</span>'},
+    {k:'saved_by', label:'Saved by'},
+    {k:'saved_at', label:'Saved', fmt:dt},
+    {k:'id', label:'', fmt:(v,r)=>'<button class="btn ghost" onclick="viewT('+v+')">View</button>'},
+  ], t, {empty:'No templates saved yet - generate a playbook and save it.'});
+  window._templates=t;
+}
+window.viewT=function(id){
+  const t=(window._templates||[]).find(x=>x.id===id);
+  if(t) modal('<h3 style="margin-bottom:10px">'+esc(t.title)+'</h3><div class="ai-answer">'+md(t.body)+'</div>');
+};
+document.getElementById('go').onclick=gen;
+document.getElementById('save').onclick=async()=>{
+  await api('/api/ai/playbook/save',{method:'POST',body:{part_no:lastPart,
+    title:'Playbook - '+lastPart, body:lastBody}});
+  loadTemplates();
+  document.getElementById('save').textContent='Saved';
+  setTimeout(()=>{document.getElementById('save').textContent='Save as template';},1500);
+};
+</script>

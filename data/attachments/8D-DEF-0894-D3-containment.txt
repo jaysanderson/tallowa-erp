@@ -1,0 +1,7 @@
+8D REPORT - D0-D3 CONTAINMENT (draft, fictional demo document)
+Problem: output fastener torque retention loss, EPB-40 actuator.
+Suspect cause: thread rolling out of spec, supplier lot WF-2261.
+Containment: lot quarantined all locations; runs RUN-1088/1092/1101 traced;
+holds on TC-A-4471 (80 u) and TC-A-4472 (220 u); customer notified <24 h;
+shipped exposure: 400 u SHP-0341 Corio, 240 u SHP-0347 Westhaven.
+Next: D4 root cause with supplier - thread-roll die wear suspected.

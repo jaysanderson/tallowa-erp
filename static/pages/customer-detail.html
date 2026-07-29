@@ -1,0 +1,74 @@
+<div class="card"><h3 id="title">Customer</h3><div id="meta" class="hint"></div></div>
+<div class="grid2">
+  <div class="card"><h3>Contract parts</h3><div id="parts"></div></div>
+  <div class="card"><h3>Ship-to plants</h3><div id="shipto"></div></div>
+</div>
+<div style="height:16px"></div>
+<div class="grid2">
+  <div class="card"><h3>Sales orders</h3><div id="orders"></div></div>
+  <div class="card"><h3>Invoices</h3><div id="invs"></div></div>
+</div>
+<div style="height:16px"></div>
+<div class="card"><h3>Complaints &amp; returns</h3><div id="comps"></div></div>
+<h2 class="sect">Assistants for this account</h2>
+<div class="grid2">
+  <div id="ai1"></div><div id="ai2"></div>
+</div>
+<div class="grid2" style="margin-top:16px">
+  <div id="ai3"></div><div id="ai4"></div>
+</div>
+<script>
+(async function(){
+  const cid=pathPart(1);
+  const c=await api('/api/customers/'+cid);
+  document.getElementById('title').innerHTML=esc(c.name)+' <span class="b b-'+(c.type==='oem'?'blue':'grey')+'">'+c.type.toUpperCase()+'</span>';
+  document.getElementById('meta').innerHTML='Contact <b>'+esc(c.contact_name)+'</b> &middot; '+esc(c.city+', '+c.state)+' &middot; terms '+c.payment_terms+' days &middot; PPM target '+c.ppm_target;
+  table('parts', [
+    {k:'part_no', label:'Our part', fmt:v=>'<a class="mono" style="color:#B04E12" href="/parts/'+v+'">'+v+'</a>'},
+    {k:'name', label:'Description'},
+    {k:'customer_part_no', label:'Their part no', fmt:v=>'<span class="mono">'+esc(v)+'</span>'},
+    {k:'price', label:'Contract price', cls:'num', fmt:money},
+  ], c.parts);
+  table('shipto', [
+    {k:'name', label:'Plant / DC'},
+    {k:'address', label:'Address', fmt:(v,r)=>esc(v+', '+r.city+' '+r.state)},
+  ], c.ship_tos);
+  table('orders', [
+    {k:'so_no', label:'Order', fmt:v=>'<span class="mono">'+v+'</span>'},
+    {k:'customer_po', label:'Their PO', fmt:v=>'<span class="mono">'+esc(v)+'</span>'},
+    {k:'status', label:'Status', fmt:badge},
+    {k:'promised_date', label:'Promised', fmt:dt},
+    {k:'total', label:'Total', cls:'num', fmt:money},
+  ], c.sales_orders, {link:r=>'/sales-orders/'+r.so_no});
+  table('invs', [
+    {k:'inv_no', label:'Invoice', fmt:v=>'<span class="mono">'+v+'</span>'},
+    {k:'status', label:'Status', fmt:badge},
+    {k:'due_on', label:'Due', fmt:dt},
+    {k:'total', label:'Total', cls:'num', fmt:money},
+  ], c.invoices);
+  table('comps', [
+    {k:'defect_no', label:'Ref', fmt:v=>'<span class="mono">'+v+'</span>'},
+    {k:'found_at', label:'Date', fmt:dt},
+    {k:'code', label:'Code'},
+    {k:'severity', label:'Severity', fmt:badge},
+    {k:'qty', label:'Units', cls:'num', fmt:n0},
+    {k:'status', label:'State', fmt:badge},
+    {k:'description', label:'Description', fmt:v=>esc(String(v).slice(0,90))},
+  ], c.complaints, {empty:'No complaints on record.'});
+
+  aiPanel('ai1', {endpoint:'/api/ai/account-health', title:'Account health',
+    tag:'GROUNDED ANALYSIS', button:'Assess', body:{customer:c.code}, golden:'account-health'});
+  aiPanel('ai2', {endpoint:'/api/ai/customer-status-update', title:'Status update draft',
+    tag:'GROUNDED DRAFT', button:'Draft update', body:{customer:c.code}, golden:'customer-status-update'});
+  aiPanel('ai3', {endpoint:'/api/ai/draft-quote', title:'Draft a quote',
+    tag:'GROUNDED DRAFT', button:'Draft quote', golden:'draft-quote',
+    body:()=>({customer:c.code, request:document.getElementById('qreq').value})});
+  aiPanel('ai4', {endpoint:'/api/ai/dunning-draft', title:'Payment reminders',
+    tag:'GROUNDED DRAFT', button:'Draft reminders', golden:'dunning-draft'});
+  const qp=document.querySelector('#ai3 .ai-panel h3');
+  const ta=document.createElement('textarea'); ta.id='qreq';
+  ta.placeholder='What are they asking for?';
+  ta.value='They want 300 more '+(c.parts[0]?c.parts[0].part_no:'units')+' delivered in 4 weeks - quote it.';
+  qp.parentNode.insertBefore(ta, qp.nextSibling);
+})();
+</script>

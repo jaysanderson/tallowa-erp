@@ -1,0 +1,69 @@
+{
+ "answer": "### Pre-Shift Safety Briefing for Line A-1 Assembly & Test - Braking\n\n**Good morning, team. Here\u2019s your pre-shift safety briefing for today.**\n\n#### Hazards on the Line Today\n- We have a quality hold on RUN-1101 TC-30412 x490 for Ellandra Motors. Ensure you are aware of this and do not proceed with any affected parts.\n- All equipment is currently running, so be vigilant around moving parts and machinery.\n\n#### Personal Protective Equipment (PPE) Required\n- **Hearing Protection**: Mandatory in the stamping area (S-1).\n- **Cut-Resistant Gloves**: Level C for handling blanks and strips.\n- **Die-Setter Helmet**: Required during die changes.\n- **No Gloves**: Do not wear gloves near rotating spindles in machining areas (M-1 and M-2).\n- **Coolant-Resistant Apron**: Required at wash stations.\n- **Mist Zone Respirator**: Required per the health monitoring plan.\n\n#### Lockout-Tagout (LOTO) Rules\n- Follow LOTO-01 for any intervention past a guard. This includes:\n  1. Notify the line lead and affected operators.\n  2. Shut down by the normal stop.\n  3. Isolate every energy source at its isolation point.\n  4. Apply your personal lock and tag - one lock per person, every person on the job locks on. Use group lock boxes for press and furnace work.\n\n#### Equipment Status\n- ASM-01 EPB assembly rig: running\n- TST-01 EPB end-of-line test rig 1: running\n- TST-02 EPB end-of-line test rig 2: running\n\n#### Additional Notes\n- Ensure walkways are clear and no red-tagged equipment is inside the line envelope.\n- Confirm that all operators are qualified for their respective stations.\n- Record the start-up check in the line log before releasing the first part.\n\n**Stay safe, stay alert, and let\u2019s have a productive shift.**",
+ "citations": [
+  {
+   "rid": "101e3493b4c3481fb5892f77990c851c",
+   "file": "sop-line-startup.md",
+   "title": "sop-line-startup.md",
+   "score": 0.43014734983444214,
+   "snippet": "# SOP-OPS-001 Line Start-up and Pre-shift Checks (Rev F)     Applies to every production line at Bellbrook at the start of every shift.     ## Line lead pre-shift routine (before first part)   1. Walk the line: guards closed, e-stops reset and tested at first and last   station, "
+  },
+  {
+   "rid": "101e3493b4c3481fb5892f77990c851c",
+   "file": "sop-line-startup.md",
+   "title": "sop-line-startup.md",
+   "score": 0.008445627056062222,
+   "snippet": " 2. Confirm the shift roster against station qualifications - every torque-critical,   press, heat-treat and plating station must be crewed by a currently qualified   operator (TRN-002). Unqualified crewing is a stop condition. \n"
+  },
+  {
+   "rid": "101e3493b4c3481fb5892f77990c851c",
+   "file": "sop-line-startup.md",
+   "title": "sop-line-startup.md",
+   "score": 0.006413164082914591,
+   "snippet": "   ## Safety non-negotiables   - Lockout-tagout per LOTO-01 for any intervention past a guard.   - No phone use inside the line envelope.   - PPE per the area matrix at all times; visitors only with an access briefing. \n"
+  },
+  {
+   "rid": "101e3493b4c3481fb5892f77990c851c",
+   "file": "sop-line-startup.md",
+   "title": "sop-line-startup.md",
+   "score": 0.006241259165108204,
+   "snippet": " 5. Confirm line-side material against the first four hours of the schedule; raise   any shortage to material control before start, not after.   6. Record the start-up check in the line log; the line may not release its first   part until the check is recorded. \n"
+  },
+  {
+   "rid": "0676871aa3a8470991793bbaad8325b9",
+   "file": "safety-loto-01.md",
+   "title": "safety-loto-01.md",
+   "score": 0.0036499870475381613,
+   "snippet": "   ## The six steps   1. Notify the line lead and affected operators.   2. Shut down by the normal stop.   3. Isolate every energy source at its isolation point.   4. Apply your personal lock and tag - one lock per person, every person on the   job locks on. Group lock boxes are "
+  },
+  {
+   "rid": "101e3493b4c3481fb5892f77990c851c",
+   "file": "sop-line-startup.md",
+   "title": "sop-line-startup.md",
+   "score": 0.003469890682026744,
+   "snippet": " 3. Check andon and station screens are live; DC torque tools completed their   overnight self-test; presses completed the die-protection check cycle.   4. Review open quality holds affecting the line; confirm held runs and lots are   physically blocked from the sequence. \n"
+  },
+  {
+   "rid": "101e3493b4c3481fb5892f77990c851c",
+   "file": "sop-line-startup.md",
+   "title": "sop-line-startup.md",
+   "score": 0.0016356753185391426,
+   "snippet": "   ## Handover   Outgoing line leads record: parts completed, stoppages over 5 minutes with cause,   open defects raised, tooling concerns. The incoming lead reads the log before   their walk.       "
+  },
+  {
+   "rid": "08d093874303486eaebedcbc5fe75c67",
+   "file": "safety-ppe-matrix.md",
+   "title": "safety-ppe-matrix.md",
+   "score": 0.0015487611526623368,
+   "snippet": "   ## Visitors and contractors   Escorted visitors: glasses, footwear covers or safety footwear, hi-vis.   Contractors follow the contractor induction plus the area matrix; a plant access   briefing is issued before first entry (SEC-04). \n"
+  }
+ ],
+ "data_used": {
+  "line": "A-1",
+  "runs": 3,
+  "crew": 5
+ },
+ "digest": "Line A-1 Assembly & Test - Braking - status running\nRuns on this line: RUN-1101 TC-30412 x490 [quality_hold/high] for Ellandra Motors; RUN-1106 TC-30412 x480 [planned/high] for Ellandra Motors; RUN-1108 TC-30470 x420 [planned/normal] for AllBrake Distribution\nCrew: Tom Ishida (line_lead, night), Grace Udo (operator, day), Dev Sharma (material_handler, afternoon), Eve Sutton (quality_inspector, night), Milo Frost (operator, afternoon)\nEquipment attention: ASM-01 EPB assembly rig status=running; TST-01 EPB end-of-line test rig 1 status=running; TST-02 EPB end-of-line test rig 2 status=running",
+ "latency_ms": 10785,
+ "cached": false
+}
