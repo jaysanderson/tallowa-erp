@@ -26,6 +26,65 @@ async function api(path, opts){
    flaky live call. Direct/manual navigation still calls live as normal. */
 const DEMO_MODE = new URLSearchParams(location.search).get('demo') === '1';
 
+/* ---------------- human input simulator ----------------
+   A guided demo page (?demo=1) fills its own request fields as if
+   someone were actually typing/selecting them - the SE watches the
+   same "someone is asking this" moment a live customer call would
+   show, then clicks the real action button themselves. Never submits
+   anything on its own; only ever touches the field(s) it's given. */
+let _simStyleInjected = false;
+function _simInjectStyle(){
+  if (_simStyleInjected) return;
+  _simStyleInjected = true;
+  const css = document.createElement('style');
+  css.textContent =
+    '.sim-typing{outline:2px solid var(--orange);outline-offset:1px;'+
+      'background:#FFF7EF!important;transition:outline-color .15s}';
+  document.head.appendChild(css);
+}
+function simulateType(el, text, opts){
+  if (typeof el === 'string') el = document.getElementById(el);
+  opts = opts || {};
+  _simInjectStyle();
+  return new Promise(resolve=>{
+    el.value = '';
+    el.classList.add('sim-typing');
+    el.focus();
+    let i = 0;
+    function step(){
+      if (i >= text.length){
+        el.classList.remove('sim-typing');
+        el.blur();
+        resolve();
+        return;
+      }
+      el.value += text[i];
+      el.dispatchEvent(new Event('input', {bubbles:true}));
+      i++;
+      const base = opts.speed || 46;
+      const jitter = base * (0.55 + Math.random() * 0.9);
+      // a human pauses slightly longer after a space, like thinking mid-word
+      const thinking = (text[i-1] === ' ' && Math.random() < 0.3) ? 130 + Math.random()*170 : 0;
+      setTimeout(step, jitter + thinking);
+    }
+    setTimeout(step, opts.delay != null ? opts.delay : 200);
+  });
+}
+function simulateSelect(el, value, opts){
+  if (typeof el === 'string') el = document.getElementById(el);
+  opts = opts || {};
+  _simInjectStyle();
+  return new Promise(resolve=>{
+    el.classList.add('sim-typing');
+    el.focus();
+    setTimeout(()=>{
+      el.value = value;
+      el.dispatchEvent(new Event('change', {bubbles:true}));
+      setTimeout(()=>{ el.classList.remove('sim-typing'); el.blur(); resolve(); }, 200);
+    }, opts.delay != null ? opts.delay : 320);
+  });
+}
+
 /* ---------------- format ---------------- */
 function money(v){ return '$' + (v==null?0:v).toLocaleString('en-AU',{minimumFractionDigits:2,maximumFractionDigits:2}); }
 function n0(v){ return (v==null?0:v).toLocaleString('en-AU',{maximumFractionDigits:0}); }
@@ -514,6 +573,11 @@ function _traceInjectStyle(){
     '.tstep .dur{flex-shrink:0;font-size:10.5px;color:var(--muted);'+
       'font-variant-numeric:tabular-nums;margin-top:2px}'+
     '.tstep.compose{background:#F3EFE3;border-color:#E7DCC0}'+
+    '.tstep.plan{background:#EDF3F8;border-color:#D6E3EE}'+
+    '.mcpline{margin-top:4px;font-size:10.8px;color:var(--muted);display:flex;align-items:center;'+
+      'gap:6px;font-family:ui-monospace,Menlo,monospace}'+
+    '.mcpline b{color:var(--ink);font-weight:600}'+
+    '.mcpline .b{font-size:8.5px;padding:1px 5px;letter-spacing:.06em}'+
     '.fallback-note{font-size:11.5px;color:var(--warn);background:#FBF4E6;'+
       'border:1px solid #F0DFB8;border-radius:7px;padding:7px 10px;margin:2px 0}'+
     'details.tracewrap{margin-top:4px}'+
@@ -538,6 +602,12 @@ function _traceStepCard(cls, iconKind, label, detail, durMs){
     (detail?'<div class="det">'+esc(detail)+'</div>':'')+'</div>'+
     (durMs!=null?'<div class="dur">'+_traceFmtS(durMs)+'</div>':'')+'</div>';
 }
+function _traceMcpLine(ev){
+  if (!ev || !ev.tool) return '';
+  const tag = ev.mcp_kind==='prompt' ? 'MCP PROMPT' : 'MCP';
+  const route = ev.mcp_route ? ' <span>'+esc(ev.mcp_route)+'</span>' : '';
+  return '<div class="mcpline"><span class="b b-navy">'+tag+'</span><b>'+esc(ev.tool)+'</b>'+route+'</div>';
+}
 
 function runAgentTrace(el, endpoint, body, opts){
   if (typeof el === 'string') el = document.getElementById(el);
@@ -557,7 +627,10 @@ function runAgentTrace(el, endpoint, body, opts){
   const trace = el.querySelector('.trace');
   const ansEl = el.querySelector('.trace-ans');
   const timerLabel = el.querySelector('.tlabel');
-  let pending = [], composeCard = null, stepCount = 0, finished = false, result = null;
+  // Keyed by tool name, not one shared slot: a multi-step agent run can
+  // have more than one tool_call in flight before its tool_result lands
+  // (see the Ops Assistant's own trace for the same reasoning).
+  let pendingByTool = {}, composeCard = null, stepCount = 0, finished = false, result = null;
 
   function setTimer(txt){ timerLabel.textContent = txt; }
   function tick(){ if(!finished) setTimer('Working - '+((Date.now()-t0)/1000).toFixed(0)+'s elapsed'); }
@@ -571,17 +644,27 @@ function runAgentTrace(el, endpoint, body, opts){
 
   return streamNdjson(endpoint, Object.assign({}, body, {stream:true}), ev=>{
     if (ev.type==='heartbeat'){ tick(); return; }
+    else if (ev.type==='plan'){
+      setTimer('Planning the lookup…');
+      push(_traceStepCard('plan', 'plan', ev.label||'Planning the lookup', ev.detail));
+    }
     else if (ev.type==='tool_call'){
       setTimer((ev.label||'Working')+'…');
-      pending.push(push(_traceStepCard('', 'pending', ev.label, ev.detail)));
+      const card = push('<div class="tstep">'+_traceIcon('pending')+
+        '<div class="body"><div class="lbl">'+esc(ev.label)+'</div>'+
+        (ev.detail?'<div class="det">'+esc(ev.detail)+'</div>':'')+
+        _traceMcpLine(ev)+'</div></div>');
+      (pendingByTool[ev.tool]=pendingByTool[ev.tool]||[]).push(card);
     }
     else if (ev.type==='tool_result'){
-      const card = pending.shift();
+      const q = pendingByTool[ev.tool];
+      const card = (q && q.length) ? q.shift() : null;
       const ok = ev.ok !== false;
       const cls = ok ? 'done' : 'err';
       const html = _traceIcon(ok?'ok':'err')+
         '<div class="body"><div class="lbl">'+esc(ev.label)+'</div>'+
-        (ev.detail?'<div class="det">'+esc(ev.detail)+'</div>':'')+'</div>'+
+        (ev.detail?'<div class="det">'+esc(ev.detail)+'</div>':'')+
+        _traceMcpLine(ev)+'</div>'+
         (ev.duration_ms!=null?'<div class="dur">'+_traceFmtS(ev.duration_ms)+'</div>':'');
       if (card){ card.className = 'tstep '+cls; card.innerHTML = html; }
       else { push('<div class="tstep '+cls+'">'+html+'</div>'); }

@@ -39,13 +39,16 @@ const wf = workflowStepper('wf', [
 ]);
 
 async function loadOptions(){
+  // In the guided demo, the part/customer are picked on screen by the
+  // simulator (see below) rather than arriving pre-selected - leave them
+  // on the list's first entry so that selection is visible when it happens.
   const parts = await api('/api/parts/');
   const sel = document.getElementById('cpart');
   const candidates = parts.filter(p=>p.category==='finished');
-  sel.innerHTML = candidates.map(p=>'<option value="'+p.part_no+'"'+(p.part_no==='TC-70210'?' selected':'')+'>'+p.part_no+' - '+esc(p.name)+'</option>').join('');
+  sel.innerHTML = candidates.map(p=>'<option value="'+p.part_no+'"'+(!DEMO_MODE && p.part_no==='TC-70210'?' selected':'')+'>'+p.part_no+' - '+esc(p.name)+'</option>').join('');
   const custs = await api('/api/customers/');
   const csel = document.getElementById('ccust');
-  csel.innerHTML = custs.map(c=>'<option value="'+c.code+'"'+(c.code==='MAR'?' selected':'')+'>'+esc(c.name)+'</option>').join('');
+  csel.innerHTML = custs.map(c=>'<option value="'+c.code+'"'+(!DEMO_MODE && c.code==='MAR'?' selected':'')+'>'+esc(c.name)+'</option>').join('');
 }
 
 function ctpCard(d, title){
@@ -244,6 +247,17 @@ async function approvePending(id, btn){
   btn.outerHTML = '<span class="b b-green">Approved - PO pulled in</span>';
 }
 
-loadOptions();
-loadPending();
+(async function(){
+  await loadOptions();
+  loadPending();
+  // Guided demo: watch the request get filled in as if Hans were typing
+  // it - part, customer, quantity, requested date - then the SE still
+  // clicks "Can we deliver?" themselves, nothing auto-submits.
+  if (DEMO_MODE){
+    await simulateSelect('cpart', 'TC-70210', {delay:450});
+    await simulateSelect('ccust', 'MAR', {delay:200});
+    await simulateType('cqty', '250', {delay:200});
+    await simulateType('cdate', '2026-08-01', {delay:200});
+  }
+})();
 </script>

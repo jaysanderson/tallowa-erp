@@ -1714,8 +1714,19 @@ def make_handler(name: str):
         except Exception:
             pass
         if body.get("stream"):
+            routed = AGENT_ROUTED_FEATURES.get(name)
+            if routed:
+                want_tool, question_fn = routed
+                golden = body.get("golden") or name
+                if body.get("mode") == "cached":
+                    gen = cached_agent_feature_stream(want_tool, golden)
+                else:
+                    bearer = (req.headers.get("authorization") or "").removeprefix("Bearer ").strip() or None
+                    gen = agent_feature_stream(question_fn(body), bearer, want_tool, golden)
+            else:
+                gen = stream_feature(name, body)
             return StreamingResponse(
-                (json.dumps(ev) + "\n" async for ev in stream_feature(name, body)),
+                (json.dumps(ev) + "\n" async for ev in gen),
                 media_type="application/x-ndjson")
         golden = body.get("golden") or name
         if body.get("mode") == "cached":
@@ -1987,8 +1998,14 @@ async def _8d_draft_events(body: dict):
 async def ai_8d_draft(req: Request, user: dict = Depends(current_user)):
     body = await req.json()
     if body.get("stream"):
+        golden = body.get("golden") or "8d-draft"
+        if body.get("mode") == "cached":
+            gen = cached_agent_feature_stream("ai_8d_draft", golden)
+        else:
+            bearer = (req.headers.get("authorization") or "").removeprefix("Bearer ").strip() or None
+            gen = agent_feature_stream(_8d_question(body), bearer, "ai_8d_draft", golden)
         return StreamingResponse(
-            (json.dumps(ev) + "\n" async for ev in _8d_draft_events(body)),
+            (json.dumps(ev) + "\n" async for ev in gen),
             media_type="application/x-ndjson")
     data = {"answer": "", "empty": True, "citations": [], "data_used": {}, "cached": False}
     async for ev in _8d_draft_events(body):
@@ -2266,8 +2283,15 @@ async def _ctp_commit_events(body: dict):
 async def ai_ctp_commit(req: Request, user: dict = Depends(current_user)):
     body = await req.json()
     if body.get("stream"):
+        expedite = bool(body.get("expedite"))
+        golden = body.get("golden") or ("ctp-commit-expedite" if expedite else "ctp-commit")
+        if body.get("mode") == "cached":
+            gen = cached_agent_feature_stream("ai_ctp_commit", golden)
+        else:
+            bearer = (req.headers.get("authorization") or "").removeprefix("Bearer ").strip() or None
+            gen = agent_feature_stream(_ctp_question(body), bearer, "ai_ctp_commit", golden)
         return StreamingResponse(
-            (json.dumps(ev) + "\n" async for ev in _ctp_commit_events(body)),
+            (json.dumps(ev) + "\n" async for ev in gen),
             media_type="application/x-ndjson")
     data = {"answer": "", "empty": True, "citations": [], "ctp": {}, "cached": False}
     async for ev in _ctp_commit_events(body):
@@ -2590,6 +2614,29 @@ def _rows_from_context(ctx: dict) -> list[dict]:
     return out
 
 
+def _tool_json_from_context(ctx: dict, want_tool: str):
+    """Like _rows_from_context, but for a composite ai_* tool whose response
+    is a single JSON OBJECT (answer/citations/data_used/...), not a list of
+    rows - _rows_from_context skips those on purpose. Returns the tool's
+    exact response dict, untouched by the agent's own narration, or None if
+    that tool was never called (or didn't return valid JSON)."""
+    for chunk in (ctx or {}).get("chunks") or []:
+        text = chunk.get("text")
+        if not isinstance(text, str):
+            continue
+        m = _CHUNK_TOOL_RE.match(chunk.get("chunk_id") or "")
+        tool = _tool_name(m.group(1) if m else (chunk.get("chunk_id") or ""))
+        if tool != want_tool:
+            continue
+        try:
+            parsed = json.loads(text)
+        except Exception:
+            continue
+        if isinstance(parsed, dict):
+            return parsed
+    return None
+
+
 # tool name -> plain-English narration for the live step trace. Anything not
 # listed falls through to _humanise()'s generic verb+resource guess.
 TOOL_LABELS = {
@@ -2685,6 +2732,7 @@ _STATUS_VERIFYING_TOOLS = {
     "holds_list_holds", "holds_create_holds", "holds_release",
     "defects_list_defects", "defects_list_pareto", "defects_create_defects",
     "runs_status", "runs_get_runs", "ai_fault_root_cause", "ai_fpy_root_cause",
+    "ai_8d_draft", "ai_ctp_commit", "ai_ap_error_explain", "ai_ap_batch_fix",
 }
 
 # Phrases that assert an all-clear / absence-of-problem operational status -
@@ -2879,11 +2927,15 @@ async def _arag_raw_events(question: str, bearer: str | None,
         await queue.put(("done", None))
 
 
-async def arag_agent_events(question: str, bearer: str | None):
+async def arag_agent_events(question: str, bearer: str | None, on_context=None):
     """Yields typed progress events: start, plan, tool_call, tool_result,
     doc_search, composing, answer, error - proxied live from the ARAG
     Retrieval Agent's own NDJSON trace, forwarding the caller's bearer so
-    the agent's /mcp tool calls carry the same RBAC as the human user."""
+    the agent's /mcp tool calls carry the same RBAC as the human user.
+    on_context(ctx), if given, is called with each raw 'context' payload as
+    it arrives - lets a caller recover a specific tool's exact JSON
+    response (see _tool_json_from_context) without this function needing
+    to know anything about which tool that caller cares about."""
     t0 = time.monotonic()
     yield {"type": "start", "question": question}
     if not (AGENT_KEY and AGENT_HOST and AGENT_ID):
@@ -2935,6 +2987,8 @@ async def arag_agent_events(question: str, bearer: str | None):
                 yield {"type": "error", "stage": "transport",
                        "message": "Could not reach the retrieval agent."}
                 return
+            if on_context and payload.get("context"):
+                on_context(payload["context"])
             for ev in _map_arag_event(payload, state):
                 et = ev.get("type")
                 if et == "tool_result" and ev.get("ok"):
@@ -2971,6 +3025,165 @@ async def arag_agent_events(question: str, bearer: str | None):
     finally:
         if not task.done():
             task.cancel()
+
+
+# =====================================================================
+# Agent-routed use-case features (GM directive, 21 Jul 2026: "all use
+# cases must use arag, not directly use mcp"). The three SE quick-launch
+# flows' hero calls (quality/8D, AP auto-fix, CTP) run through the SAME
+# live ARAG Retrieval Agent as the Ops Assistant, not a homegrown
+# digest-then-raw-LLM-call - the agent plans and calls this app's own
+# /mcp, including the composite ai_* tool that does the real deterministic
+# work (dig_* + kb_ask/predict_gen, still real, still live) for that use
+# case. That tool's exact JSON response is recovered verbatim from the
+# agent's own tool-call context (never re-parsed from the agent's prose)
+# so the UI still gets the same precise structured fields (data_used,
+# ctp, fields, citations...) a direct buffered call would have returned -
+# only now genuinely agent-driven, with the agent's real trace on screen.
+# =====================================================================
+async def agent_feature_stream(question: str, bearer: str | None,
+                               want_tool: str, golden_key: str):
+    """Forwards the real ARAG Retrieval Agent's own NDJSON trace verbatim
+    (so the UI shows exactly what the agent is doing - which MCP tool,
+    which route, how long it took), then emits one final `result` event
+    once the agent answers: the captured exact JSON response from
+    `want_tool` if it called it, else a plain prose fallback (still a
+    live, honest answer - just without that tool's precise structured
+    fields). Falls back to a cached golden only on a genuine live failure
+    (timeout/error/no grounded data), never on a merely different tool
+    choice."""
+    captured = {}
+
+    def on_context(ctx):
+        data = _tool_json_from_context(ctx, want_tool)
+        if data is not None:
+            captured["data"] = data
+
+    got_result = False
+    async for ev in arag_agent_events(question, bearer, on_context=on_context):
+        et = ev.get("type")
+        if et == "answer":
+            data = captured.get("data")
+            if data is None:
+                data = {"answer": ev.get("text") or "", "citations": [],
+                        "data_used": {}, "cached": False}
+            got_result = True
+            yield {"type": "result", "data": data}
+        elif et == "error":
+            if not got_result:
+                c = cached_golden(golden_key)
+                if c:
+                    yield {"type": "fallback",
+                           "message": "Showing a captured example while the "
+                                     "live agent recovers."}
+                    yield {"type": "result", "data": c}
+                    got_result = True
+                else:
+                    yield ev
+            continue
+        else:
+            yield ev
+    if not got_result:
+        yield {"type": "error",
+               "message": "The retrieval agent could not answer this."}
+    yield {"type": "done"}
+
+
+def _synth_agent_trace(want_tool: str) -> list[dict]:
+    """The guaranteed-demo (cached) path shows the same SHAPE of work the
+    live agent does - it calling this exact MCP tool - so a demo never
+    looks architecturally different from a live run, just faster and
+    pre-verified."""
+    route = _mcp_route(want_tool)
+    label = TOOL_LABELS.get(want_tool) or _humanise(want_tool)
+    return [
+        {"type": "plan", "label": "Planning the lookup over the live ERP"},
+        {"type": "tool_call", "label": label, "tool": want_tool,
+         "mcp_kind": "tool", "mcp_route": route},
+        {"type": "tool_result", "ok": True, "tool": want_tool,
+         "label": label + " - data retrieved",
+         "mcp_kind": "tool", "mcp_route": route},
+        {"type": "composing", "label": "Composing the grounded answer"},
+    ]
+
+
+async def cached_agent_feature_stream(want_tool: str, golden_key: str):
+    """Cached-mode twin of agent_feature_stream - same event vocabulary,
+    same synthetic "agent calls want_tool" trace, backed by the captured
+    golden instead of a live run."""
+    yield {"type": "start", "question": ""}
+    c = cached_golden(golden_key)
+    if not c:
+        yield {"type": "error",
+               "message": "No cached example is available for this yet."}
+        yield {"type": "done"}
+        return
+    for ev in _synth_agent_trace(want_tool):
+        yield ev
+    yield {"type": "result", "data": c}
+    yield {"type": "done"}
+
+
+def _fpy_question(body: dict) -> str:
+    line = body.get("line") or "A-2"
+    return (f"Line {line} had an overnight First Pass Yield (FPY) alert. "
+            f"Call the ai_fpy_root_cause tool with body "
+            f"{json.dumps({'line': line})} and present the ranked, "
+            "correlated root-cause suspects it returns, with their "
+            "confidence levels.")
+
+
+def _ap_explain_question(body: dict) -> str:
+    ap_no = body.get("ap_no") or ""
+    return (f"AP invoice {ap_no} failed to post. Call the "
+            f"ai_ap_error_explain tool with body "
+            f"{json.dumps({'ap_no': ap_no})} and explain the failure in "
+            "plain English: why it failed, the exact fix, and who is "
+            "authorised to apply it.")
+
+
+def _ap_batch_question(body: dict) -> str:
+    ap_no = body.get("ap_no") or ""
+    return (f"Are there other AP invoices sharing the same root cause as "
+            f"{ap_no}? Call the ai_ap_batch_fix tool with body "
+            f"{json.dumps({'ap_no': ap_no})} and propose the batch "
+            "correction it finds, including whether it is within the AP "
+            "clerk's approval authority.")
+
+
+def _8d_question(body: dict) -> str:
+    line = body.get("line") or "A-2"
+    return (f"Draft the 8D containment report for the overnight FPY "
+            f"breach on line {line}. Call the ai_8d_draft tool with body "
+            f"{json.dumps({'line': line})} and present the drafted "
+            "report exactly as it comes back, in full.")
+
+
+def _ctp_question(body: dict) -> str:
+    payload = {"part_no": body.get("part_no") or "TC-70210",
+               "qty": float(body.get("qty") or 250),
+               "customer_code": body.get("customer_code") or "MAR"}
+    if body.get("requested_date"):
+        payload["requested_date"] = body["requested_date"]
+    if body.get("expedite"):
+        payload["expedite"] = True
+    return ("Check capable-to-promise for this order. Call the "
+            f"ai_ctp_commit tool with body {json.dumps(payload)} and "
+            "present its commit date, verdict, binding constraint and "
+            "alternatives exactly as it comes back.")
+
+
+# feature name (as sent by the UI's `golden`/route) -> (MCP tool name,
+# question builder). Only the registry ("F") features actually reached
+# from the three quick-launch pages route through the live agent this
+# way; every other /api/ai/<feature> route keeps its existing buffered
+# (deterministic digest + kb_ask/predict_gen) behaviour - unchanged, and
+# still used as the composite tool's OWN implementation above.
+AGENT_ROUTED_FEATURES = {
+    "fpy-root-cause": ("ai_fpy_root_cause", _fpy_question),
+    "ap-error-explain": ("ai_ap_error_explain", _ap_explain_question),
+    "ap-batch-fix": ("ai_ap_batch_fix", _ap_batch_question),
+}
 
 
 def _adapt_legacy_golden_events(events: list[dict]) -> list[dict]:

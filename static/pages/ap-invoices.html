@@ -3,14 +3,6 @@
   <div id="wf"></div>
 </div>
 <div class="card">
-  <h3>Today's AP posting failures
-    <span class="sp"></span>
-    <select id="fstatus" style="width:150px"><option value="">All statuses</option>
-      <option value="failed">Failed</option><option value="posted">Posted</option></select>
-  </h3>
-  <div id="aptable"></div>
-</div>
-<div class="card">
   <h3>Explain a failure<span class="sp"></span></h3>
   <div class="row"><input type="text" class="grow" id="apno" placeholder="AP invoice number, e.g. AP-8801" value="AP-8801">
     <button class="btn orange" id="apExplainGo">Explain</button></div>
@@ -22,6 +14,14 @@
   <div id="similarOut"></div>
   <div id="apBatchOut"></div>
   <div id="approveRow" style="margin-top:10px"></div>
+</div>
+<div class="card">
+  <h3>Today's AP posting failures
+    <span class="sp"></span>
+    <select id="fstatus" style="width:150px"><option value="">All statuses</option>
+      <option value="failed">Failed</option><option value="posted">Posted</option></select>
+  </h3>
+  <div id="aptable"></div>
 </div>
 <script>
 let curGroup = null;
@@ -183,5 +183,8 @@ document.getElementById('apBatchGo').onclick = async ()=>{
   document.querySelectorAll('#apchips .qchip').forEach(c=>c.onclick=()=>{
     document.getElementById('apno').value = c.textContent.split(' ')[0]; explain();
   });
+  // Guided demo: watch the AP number get typed in, the way it would on a
+  // live call - the SE still clicks Explain themselves, nothing auto-runs.
+  if (DEMO_MODE) await simulateType('apno', 'AP-8801', {delay:500});
 })();
 </script>
