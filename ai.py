@@ -1725,8 +1725,13 @@ def make_handler(name: str):
         except Exception:
             pass
         if body.get("stream"):
+            agentic = AGENTIC_FEATURES.get(name)
             routed = AGENT_ROUTED_FEATURES.get(name)
-            if routed:
+            if agentic:
+                question, build_data = agentic(body)
+                bearer = (req.headers.get("authorization") or "").removeprefix("Bearer ").strip() or None
+                gen = agentic_feature_stream(question, bearer, build_data)
+            elif routed:
                 want_tool, question_fn = routed
                 question, args = question_fn(body)
                 bearer = (req.headers.get("authorization") or "").removeprefix("Bearer ").strip() or None
@@ -2027,13 +2032,10 @@ async def _8d_draft_events(body: dict):
 async def ai_8d_draft(req: Request, user: dict = Depends(current_user)):
     body = await req.json()
     if body.get("stream"):
-        question, args = _8d_question(body)
-        line = args.get("line")
+        line = body.get("line") or "A-2"
         bearer = (req.headers.get("authorization") or "").removeprefix("Bearer ").strip() or None
-        gen = agent_feature_stream(
-            question, bearer, "ai_8d_draft", args,
-            verify=lambda data: (data.get("data_used") or {}).get("line") == line,
-            direct_fallback=lambda: _drain_result(_8d_draft_events(body)))
+        gen = agentic_feature_stream(_8d_agentic_question(line), bearer,
+                                     _8d_build_data(line))
         return StreamingResponse(
             (json.dumps(ev) + "\n" async for ev in gen),
             media_type="application/x-ndjson")
@@ -3170,6 +3172,46 @@ async def agent_feature_stream(question: str, bearer: str | None,
     yield {"type": "done"}
 
 
+# =====================================================================
+# Genuinely agentic use-case features (GM finding, 30 Jul 2026: the
+# composite ai_* tools above are purpose-built response-formatting
+# endpoints, not real ERP data - the agent's real job in that flow was
+# just "call this one pre-cooked endpoint and repeat it", which is not
+# actually the agent building context from the plant's own systems. This
+# is the honest version: the agent gathers its OWN context by calling
+# real, raw, granular ERP list endpoints (defects, runs, lots, machines,
+# operators - all genuinely dispatched through /mcp, confirmed via the
+# app's own MCP call log) and reasons/narrates the answer itself, the
+# same way it already does on the Ops Assistant page for free-form
+# questions. No composite tool, no silent bypass. Where the UI needs a
+# precise number for something a button then acts on, `build_data`
+# derives it from the SAME real rows the agent retrieved along the way
+# (captured via the existing _rows_from_context mechanism) - never a
+# second, separate, hidden query standing in for what the agent did.
+# =====================================================================
+async def agentic_feature_stream(question: str, bearer: str | None, build_data=None):
+    rows_by_tool: dict[str, list] = {}
+
+    def on_context(ctx):
+        for group in _rows_from_context(ctx):
+            rows_by_tool[group["tool"]] = group["rows"]
+
+    got_result = False
+    async for ev in arag_agent_events(question, bearer, on_context=on_context):
+        if ev.get("type") == "answer":
+            text = clean(ev.get("text") or "")
+            data = (build_data(text, rows_by_tool) if build_data else
+                   {"answer": text, "citations": [], "data_used": {}, "cached": False})
+            got_result = True
+            yield {"type": "result", "data": data}
+        else:
+            yield ev
+    if not got_result:
+        yield {"type": "error",
+               "message": "The retrieval agent could not answer this."}
+    yield {"type": "done"}
+
+
 def _mcp_call_hint(tool: str, path_args: dict | None = None,
                    query_args: dict | None = None) -> str:
     """The exact JSON-RPC `arguments` shape a granular GET tool needs,
@@ -3185,56 +3227,170 @@ def _mcp_call_hint(tool: str, path_args: dict | None = None,
     return f"{tool} with arguments {json.dumps(parts)}"
 
 
-def _fpy_question(body: dict):
-    line = body.get("line") or "A-2"
-    args = {"line": line}
-    q = (f"Line {line} had an overnight First Pass Yield (FPY) alert. "
-         "Before drawing a conclusion, check the defect register by "
-         f"calling {_mcp_call_hint('defects_list_defects')}, the machine "
-         f"service records by calling {_mcp_call_hint('machines_list_machines')}, "
-         "and the shift roster by calling "
-         f"{_mcp_call_hint('operators_list_operators')}. Then call the "
-         f"ai_fpy_root_cause tool with body {json.dumps(args)} for the "
-         "full ranked, correlated root-cause analysis, and present its "
-         "findings with their confidence levels.")
-    return q, args
+def _fpy_agentic_question(line: str) -> str:
+    return (
+        f"Line {line} had an overnight First Pass Yield (FPY) alert - one "
+        f"of its completed runs fell below the plant's target. Investigate "
+        f"using the plant's own live data: check the production runs on "
+        f"line {line} and find the completed one with the WORST FPY (not "
+        "just the most recent one - the alert is about the run that "
+        "missed target), the defect register for the defects logged "
+        "against that specific run (match by run number exactly), the raw "
+        "and finished lot records for the material consumed, the machine "
+        "service records for any equipment involved, and the shift roster "
+        "for who was actually rostered on shift overnight on that line - "
+        "note that a defect record's 'found_by' or a hold's 'placed_by' "
+        "name is the quality inspector who logged it, NOT the shift "
+        "operator; only the shift roster itself says who was on shift. "
+        "Also check the plant's quality procedures for anything relevant "
+        "to root-cause ranking. From what you actually find, rank the "
+        "most likely root-cause suspects - material, equipment, shift - "
+        "by how strongly the evidence correlates with the defects: name "
+        "the specific lot, machine or person, cite the exact run number "
+        "and defect record numbers and the percentage of affected units "
+        "for each, and label each suspect's confidence HIGH, MEDIUM or "
+        "LOW. Double-check every number and name against exactly what you "
+        "retrieved before including it - never invent or misremember a "
+        "figure, run number, lot number, defect number or name.")
 
 
-def _ap_explain_question(body: dict):
-    ap_no = body.get("ap_no") or ""
-    args = {"ap_no": ap_no}
-    q = (f"First check the supplier list by calling "
-         f"{_mcp_call_hint('suppliers_list_suppliers')} for vendor "
-         f"configuration context. Then call the ai_ap_error_explain tool "
-         f"for ap_no {ap_no} and explain the failure in plain English: "
-         "why it failed, the exact fix, and who is authorised to apply "
-         "it.")
-    return q, args
+def _fpy_build_data(line: str):
+    def build(text: str, rows_by_tool: dict) -> dict:
+        runs = [r for r in (rows_by_tool.get("runs_list_runs") or [])
+                if (r.get("line_code") or "").upper() == line.upper()
+                and r.get("status") == "completed"
+                and ((r.get("qty_good") or 0) + (r.get("qty_scrap") or 0)) > 0]
+        # Worst FPY, not just "most recent" - matches the question asked
+        # (the alert is about the run that missed target) and the same
+        # ordering the old deterministic dig_fpy_root_cause used.
+        run = min(runs, key=lambda r: (r.get("qty_good") or 0) /
+                  ((r.get("qty_good") or 0) + (r.get("qty_scrap") or 0)),
+                  default=None)
+        data_used = {}
+        if run:
+            good, scrap = run.get("qty_good") or 0, run.get("qty_scrap") or 0
+            denom = good + scrap
+            data_used = {"line": run.get("line_code"), "run_no": run.get("run_no"),
+                        "fpy": round(100.0 * good / denom, 1) if denom else None,
+                        "total_defect_units": scrap}
+        return {"answer": text, "citations": [], "data_used": data_used,
+                "cached": False}
+    return build
 
 
-def _ap_batch_question(body: dict):
-    ap_no = body.get("ap_no") or ""
-    args = {"ap_no": ap_no}
-    q = (f"Are there other AP invoices sharing the same root cause as "
-         f"{ap_no}? First check the supplier list by calling "
-         f"{_mcp_call_hint('suppliers_list_suppliers')} for vendor "
-         "configuration context. Then call the ai_ap_batch_fix tool with "
-         f"body {json.dumps(args)} and propose the batch correction it "
-         "finds, including whether it is within the AP clerk's approval "
-         "authority.")
-    return q, args
+def _ap_explain_agentic_question(ap_no: str) -> str:
+    return (
+        f"AP invoice {ap_no} failed to post. Investigate using the "
+        "plant's own live data: call the ap_invoices_list_ap_invoices "
+        "tool - it lists every AP invoice in one call, with no filter "
+        "needed (do not use ap_invoices_get_ap_invoices - that only "
+        f"returns a single invoice and cannot answer this) - and find "
+        f"{ap_no} in the results for its error code, amount, status and "
+        "vendor, and check the supplier list for that vendor's "
+        "configuration. Also search the plant's finance/AP policy "
+        "procedures for what this error code means, the exact fix, and "
+        "who is authorised to apply it, citing the policy reference. "
+        "From what you actually find, explain the failure in plain "
+        "English: why it failed, the exact fix, and who may authorise "
+        "it. Never invent a figure, code or policy reference - use only "
+        "what you retrieved.")
 
 
-def _8d_question(body: dict):
-    line = body.get("line") or "A-2"
-    args = {"line": line}
-    q = (f"First check current quality holds by calling "
-         f"{_mcp_call_hint('holds_list_holds')} for context. Then draft "
-         f"the 8D containment report for the overnight FPY breach on "
-         f"line {line} by calling the ai_8d_draft tool with body "
-         f"{json.dumps(args)}, and present the drafted report exactly as "
-         "it comes back, in full.")
-    return q, args
+def _ap_explain_build_data(ap_no: str):
+    def build(text: str, rows_by_tool: dict) -> dict:
+        invs = rows_by_tool.get("ap_invoices_list_ap_invoices") or []
+        row = next((r for r in invs if r.get("ap_no") == ap_no), None)
+        data_used = ({"ap_no": row.get("ap_no"), "error_code": row.get("error_code"),
+                     "amount": row.get("amount")} if row else {})
+        return {"answer": text, "citations": [], "data_used": data_used,
+                "cached": False}
+    return build
+
+
+def _ap_batch_agentic_question(ap_no: str) -> str:
+    return (
+        f"Are there other AP invoices sharing the same root cause as "
+        f"{ap_no}? Investigate using the plant's own live data: call the "
+        "ap_invoices_list_ap_invoices tool - it lists every AP invoice in "
+        "one call, with no filter needed, which is what this question "
+        "needs (do not use ap_invoices_get_ap_invoices - that only "
+        f"returns a single invoice and cannot answer this). Each invoice "
+        f"carries its own root_cause_group field - find every invoice "
+        f"that has the SAME root_cause_group value as {ap_no} (not just "
+        "the same error code), and their combined value. Also "
+        "search the plant's finance/AP policy procedures for the AP "
+        "clerk's approval limit and whether a batch correction covering "
+        "all of them is within that authority, citing the policy "
+        "reference. From what you actually find, propose the batch "
+        "correction: how many invoices, the combined total, whether it "
+        "is within the AP clerk's approval authority, and the policy "
+        "that authorises it. If nothing shares the same cause, say "
+        "plainly that this is a one-off. Never invent a figure or "
+        "policy reference - use only what you retrieved.")
+
+
+def _ap_batch_build_data(ap_no: str):
+    def build(text: str, rows_by_tool: dict) -> dict:
+        invs = rows_by_tool.get("ap_invoices_list_ap_invoices") or []
+        target = next((r for r in invs if r.get("ap_no") == ap_no), None)
+        data_used = {}
+        if target:
+            # Group by the invoice's own root_cause_group column - the
+            # SAME field the deterministic /ap-invoices/{ap_no}/similar
+            # endpoint groups on (ap_similar_group in erp.py). Grouping by
+            # error_code+vendor instead looked more semantically tidy but
+            # silently diverged from what that endpoint's own "Shared root
+            # cause" card shows on the same page for the same invoice -
+            # two different counts for "how many share this cause" on one
+            # screen is exactly the kind of inconsistency to avoid.
+            rcg = target.get("root_cause_group")
+            group = [r for r in invs if rcg and r.get("root_cause_group") == rcg]
+            data_used = {"ap_no": ap_no, "error_code": target.get("error_code"),
+                        "root_cause_group": rcg, "count": len(group),
+                        "total_amount": sum(r.get("amount") or 0 for r in group),
+                        "all_within_clerk_authority":
+                            all(r.get("within_clerk_authority") for r in group)}
+        return {"answer": text, "citations": [], "data_used": data_used,
+                "cached": False}
+    return build
+
+
+def _8d_agentic_question(line: str) -> str:
+    return (
+        f"Draft the 8D containment report for the overnight FPY breach "
+        f"on line {line}. Investigate using the plant's own live data: "
+        f"check the production runs on line {line} and find the "
+        "completed one with the WORST FPY (the alert is about the run "
+        "that missed target, not just the most recent one), the defect "
+        "register for the defects logged against that specific run "
+        "(match by run number exactly), the raw and finished lot records "
+        "for the material consumed, the machine service records for any "
+        "equipment involved, the shift roster for who was actually "
+        "rostered on shift - note that a defect record's 'found_by' or a "
+        "hold's 'placed_by' name is the quality inspector who logged it, "
+        "NOT the shift operator - and current quality holds to see the "
+        "CURRENT containment status of the affected finished lot (do not "
+        "assume a hold exists if the data says it does not). Also search "
+        "the plant's QP-8D containment procedure. Structure the draft "
+        "with these exact markdown headings, one short paragraph each: "
+        "## Problem (D2) - the FPY breach in numbers; ## Root cause (D4) "
+        "- the leading suspect from the evidence and its confidence, "
+        "naming the identifiers; ## Containment (D3) - state the CURRENT "
+        "containment status exactly as you found it and what should "
+        "happen next; ## Corrective action (D5-D7) - pending the "
+        "quality inspector's approval, phrased as a recommendation, not "
+        "a completed action. Double-check every number and name against "
+        "exactly what you retrieved - never invent or misremember a "
+        "defect, run, lot, hold number or machine identifier.")
+
+
+def _8d_build_data(line: str):
+    fpy_build = _fpy_build_data(line)
+    def build(text: str, rows_by_tool: dict) -> dict:
+        data = fpy_build(text, rows_by_tool)
+        data["fields"] = split_8d_sections(text)
+        return data
+    return build
 
 
 def _ctp_question(body: dict):
@@ -3275,10 +3431,25 @@ def _lot_trace_question(body: dict):
 # keeps its existing buffered (deterministic digest + kb_ask/predict_gen)
 # behaviour - unchanged, and still used as the composite tool's OWN
 # implementation above.
-AGENT_ROUTED_FEATURES = {
-    "fpy-root-cause": ("ai_fpy_root_cause", _fpy_question),
-    "ap-error-explain": ("ai_ap_error_explain", _ap_explain_question),
-    "ap-batch-fix": ("ai_ap_batch_fix", _ap_batch_question),
+# No remaining registry features route through the old composite-tool +
+# verify/fallback pattern - kept as an empty mapping (rather than deleted)
+# so make_handler's dispatch logic doesn't need a structural change if a
+# feature genuinely needs it again later (see agent_feature_stream above).
+AGENT_ROUTED_FEATURES = {}
+
+# Genuinely agentic features (see agentic_feature_stream above) - no
+# composite tool, the agent gathers real context itself from real,
+# granular ERP endpoints and reasons/narrates the answer directly.
+AGENTIC_FEATURES = {
+    "fpy-root-cause": lambda body: (
+        _fpy_agentic_question(body.get("line") or "A-2"),
+        _fpy_build_data(body.get("line") or "A-2")),
+    "ap-error-explain": lambda body: (
+        _ap_explain_agentic_question(body.get("ap_no") or ""),
+        _ap_explain_build_data(body.get("ap_no") or "")),
+    "ap-batch-fix": lambda body: (
+        _ap_batch_agentic_question(body.get("ap_no") or ""),
+        _ap_batch_build_data(body.get("ap_no") or "")),
 }
 
 
