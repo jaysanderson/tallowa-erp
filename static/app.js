@@ -590,8 +590,76 @@ function _traceInjectStyle(){
     'details.tracewrap summary::-webkit-details-marker{display:none}'+
     "details.tracewrap summary:before{content:'\\25B8 ';color:var(--orange);font-size:10px}"+
     "details.tracewrap[open] summary:before{content:'\\25BE ';}"+
-    'details.tracewrap summary:hover{color:var(--ink)}';
+    'details.tracewrap summary:hover{color:var(--ink)}'+
+    /* live agent modal - the moment the agent is actually working gets its
+       own spotlighted overlay, not a small inline card competing with the
+       rest of the page. */
+    '.agent-modal-bg{background:rgba(8,18,28,.78);backdrop-filter:blur(2px);'+
+      'transition:opacity .2s ease}'+
+    '.modal.agent-modal{background:linear-gradient(165deg,#122A3D,#0B1B29);color:#EAF1F7;'+
+      'max-width:760px;width:100%;padding:26px 30px 22px;border-radius:16px;'+
+      'box-shadow:0 40px 90px rgba(0,0,0,.5);border:1px solid rgba(255,255,255,.08)}'+
+    '.am-head{display:flex;align-items:center;gap:10px;margin-bottom:16px}'+
+    '.am-live{display:flex;align-items:center;gap:7px;font-size:10.5px;letter-spacing:.14em;'+
+      'font-weight:700;color:#F0A868;text-transform:uppercase}'+
+    '.am-live .dot{width:7px;height:7px;border-radius:50%;background:var(--orange);'+
+      'animation:ampulse 1.3s ease-in-out infinite}'+
+    '@keyframes ampulse{0%,100%{opacity:1;transform:scale(1);box-shadow:0 0 0 0 rgba(232,117,42,.5)}'+
+      '50%{opacity:.6;transform:scale(.75);box-shadow:0 0 0 5px rgba(232,117,42,0)}}'+
+    '.am-timer{margin-left:auto;font-family:ui-monospace,Menlo,monospace;font-size:19px;'+
+      'font-weight:700;color:#fff;font-variant-numeric:tabular-nums;letter-spacing:.01em}'+
+    '.am-timer span{font-size:11px;color:#7E93A5;font-weight:600;margin-left:3px}'+
+    '.am-title{font-size:18px;font-weight:700;margin-bottom:3px;color:#fff;line-height:1.3}'+
+    '.am-sub{font-size:12px;color:#8FA3B5;margin-bottom:18px;line-height:1.5}'+
+    '.am-trace{display:flex;flex-direction:column;gap:9px;max-height:46vh;overflow-y:auto;'+
+      'padding-right:4px}'+
+    '.am-trace::-webkit-scrollbar{width:6px}'+
+    '.am-trace::-webkit-scrollbar-thumb{background:rgba(255,255,255,.15);border-radius:3px}'+
+    '.agent-modal .tstep{background:rgba(255,255,255,.045);border-color:rgba(255,255,255,.1)}'+
+    '.agent-modal .tstep.done{background:rgba(255,255,255,.075)}'+
+    '.agent-modal .tstep.err{background:rgba(211,71,54,.16);border-color:rgba(211,71,54,.4)}'+
+    '.agent-modal .tstep.compose{background:rgba(232,117,42,.14);border-color:rgba(232,117,42,.4)}'+
+    '.agent-modal .tstep.plan{background:rgba(255,255,255,.03);border-color:rgba(255,255,255,.08)}'+
+    '.agent-modal .tstep .lbl{color:#F3F7FA}'+
+    '.agent-modal .tstep.err .lbl{color:#FF9B8A}'+
+    '.agent-modal .tstep .det{color:#8FA3B5}'+
+    '.agent-modal .tstep .dur{color:#6D8296}'+
+    '.agent-modal .icon .ring{border-color:rgba(255,255,255,.2);border-top-color:var(--orange)}'+
+    '.agent-modal .icon .dim{background:#5E7186}'+
+    '.agent-modal .icon .tick{background:#2E7D4F}'+
+    '.agent-modal .tstep.err .icon .tick{background:#D34736}'+
+    '.agent-modal .mcpline{color:#7E93A5}'+
+    '.agent-modal .mcpline b{color:#EAF1F7}'+
+    '.am-done{display:flex;align-items:center;gap:10px;padding:10px 4px 2px;font-size:13.5px;'+
+      'font-weight:650;color:#7FE0A8;animation:amdone .4s ease both}'+
+    '.am-done .check{width:22px;height:22px;border-radius:50%;background:#1E4A32;color:#7FE0A8;'+
+      'display:flex;align-items:center;justify-content:center;font-size:13px;flex-shrink:0}'+
+    '@keyframes amdone{from{opacity:0;transform:translateY(6px) scale(.96)}'+
+      'to{opacity:1;transform:translateY(0) scale(1)}}';
   document.head.appendChild(css);
+}
+function _agentModalOpen(title, sub){
+  _traceInjectStyle();
+  const bg = document.getElementById('modalbg'), modalEl = document.getElementById('modal');
+  modalEl.className = 'modal agent-modal';
+  modalEl.innerHTML =
+    '<div class="am-head"><div class="am-live"><span class="dot"></span>Live - Retrieval Agent</div>'+
+      '<div class="am-timer" id="amtimer">0.0<span>s</span></div></div>'+
+    '<div class="am-title">'+esc(title)+'</div>'+
+    (sub?'<div class="am-sub">'+sub+'</div>':'')+
+    '<div class="am-trace" id="amtrace"></div>';
+  bg.className = 'modal-bg agent-modal-bg';
+  bg.onclick = null;  // a live agent run isn't dismissible by an outside click
+  bg.style.display = 'flex';
+  return {trace: document.getElementById('amtrace'), timer: document.getElementById('amtimer')};
+}
+function _agentModalClose(){
+  const bg = document.getElementById('modalbg');
+  bg.style.display = 'none';
+  bg.className = 'modal-bg';
+  const modalEl = document.getElementById('modal');
+  modalEl.className = 'modal';
+  modalEl.innerHTML = '';
 }
 function _traceIcon(kind){
   if (kind==='pending') return '<div class="icon"><div class="ring"></div></div>';
@@ -618,103 +686,104 @@ function runAgentTrace(el, endpoint, body, opts){
   opts = opts || {};
   _traceInjectStyle();
   const t0 = Date.now();
-  el.innerHTML =
-    '<div class="trace-wrap">'+
-      '<div class="trace-head"><h3>'+esc(opts.title||'Watching the agent work')+'</h3>'+
-        '<div class="trace-timer"><span class="livedot"></span><span class="tlabel">Connecting to the retrieval agent&hellip;</span></div>'+
-      '</div>'+
-      (opts.sub ? '<div class="trace-sub">'+opts.sub+'</div>' : '')+
-      '<div class="trace"></div>'+
-    '</div>'+
-    '<div class="trace-ans"></div>';
-  const wrap = el.querySelector('.trace-wrap');
-  const trace = el.querySelector('.trace');
-  const ansEl = el.querySelector('.trace-ans');
-  const timerLabel = el.querySelector('.tlabel');
+  const subText = (opts.sub ? opts.sub+' ' : '')+
+    'A genuine live call to the retrieval agent - this can take up to a minute.';
+  const m = _agentModalOpen(opts.title||'Watching the agent work', subText);
+  el.innerHTML = '';
   // Keyed by tool name, not one shared slot: a multi-step agent run can
   // have more than one tool_call in flight before its tool_result lands
   // (see the Ops Assistant's own trace for the same reasoning).
-  let pendingByTool = {}, composeCard = null, stepCount = 0, finished = false, result = null;
+  let pendingByTool = {}, composeCard = null, stepCount = 0, finished = false;
 
-  function setTimer(txt){ timerLabel.textContent = txt; }
-  function tick(){ if(!finished) setTimer('Working - '+((Date.now()-t0)/1000).toFixed(0)+'s elapsed'); }
-  const ticker = setInterval(tick, 1000);
+  function setTimer(){ m.timer.innerHTML = ((Date.now()-t0)/1000).toFixed(1)+'<span>s</span>'; }
+  const ticker = setInterval(()=>{ if(!finished) setTimer(); }, 100);
   function push(html){
     stepCount++;
-    trace.insertAdjacentHTML('beforeend', html);
-    trace.scrollTop = trace.scrollHeight;
-    return trace.lastElementChild;
+    m.trace.insertAdjacentHTML('beforeend', html);
+    m.trace.scrollTop = m.trace.scrollHeight;
+    return m.trace.lastElementChild;
   }
 
-  return streamNdjson(endpoint, Object.assign({}, body, {stream:true}), ev=>{
-    if (ev.type==='heartbeat'){ tick(); return; }
-    else if (ev.type==='plan'){
-      setTimer('Planning the lookup…');
-      push(_traceStepCard('plan', 'plan', ev.label||'Planning the lookup', ev.detail));
-    }
-    else if (ev.type==='tool_call'){
-      setTimer((ev.label||'Working')+'…');
-      const card = push('<div class="tstep">'+_traceIcon('pending')+
-        '<div class="body"><div class="lbl">'+esc(ev.label)+'</div>'+
-        (ev.detail?'<div class="det">'+esc(ev.detail)+'</div>':'')+
-        _traceMcpLine(ev)+'</div></div>');
-      (pendingByTool[ev.tool]=pendingByTool[ev.tool]||[]).push(card);
-    }
-    else if (ev.type==='tool_result'){
-      const q = pendingByTool[ev.tool];
-      const card = (q && q.length) ? q.shift() : null;
-      const ok = ev.ok !== false;
-      const cls = ok ? 'done' : 'err';
-      const html = _traceIcon(ok?'ok':'err')+
-        '<div class="body"><div class="lbl">'+esc(ev.label)+'</div>'+
-        (ev.detail?'<div class="det">'+esc(ev.detail)+'</div>':'')+
-        _traceMcpLine(ev)+'</div>'+
-        (ev.duration_ms!=null?'<div class="dur">'+_traceFmtS(ev.duration_ms)+'</div>':'');
-      if (card){ card.className = 'tstep '+cls; card.innerHTML = html; }
-      else { push('<div class="tstep '+cls+'">'+html+'</div>'); }
-    }
-    else if (ev.type==='doc_search'){
-      setTimer((ev.label||'Reading plant documents')+'…');
-      push(_traceStepCard('done', 'ok', ev.label||'Reading plant documents', ev.detail));
-    }
-    else if (ev.type==='composing'){
-      setTimer((ev.label||'Composing the answer')+'…');
-      if (composeCard){ composeCard.querySelector('.lbl').textContent = ev.label||''; }
-      else{
-        composeCard = push('<div class="tstep compose">'+_traceIcon('pending')+
-          '<div class="body"><div class="lbl">'+esc(ev.label||'')+'</div></div></div>');
-      }
-    }
-    else if (ev.type==='fallback'){
-      ansEl.insertAdjacentHTML('beforeend', '<div class="fallback-note">'+esc(ev.message)+'</div>');
-    }
-    else if (ev.type==='result'){
+  return new Promise(resolve=>{
+    function finish(data){
       finished = true;
       clearInterval(ticker);
-      if (composeCard){ composeCard.className='tstep done';
-        composeCard.innerHTML = _traceIcon('ok')+'<div class="body"><div class="lbl">Answer composed</div></div>'; }
-      setTimer('Done - '+((Date.now()-t0)/1000).toFixed(1)+'s');
-      const data = ev.data || {};
-      const answerHtml = opts.renderAnswer ? opts.renderAnswer(data) :
-        (data.answer ? '<div class="ai-answer">'+md(data.answer)+'</div>'+citesHtml(data.citations)
-          : '<div class="empty">No grounded answer was available for that - try again.</div>');
-      ansEl.insertAdjacentHTML('beforeend',
-        '<div style="border-top:1.5px solid var(--line);padding-top:12px;margin-top:2px">'+answerHtml+'</div>'+
-        '<details class="tracewrap"><summary>How this was answered ('+stepCount+' step(s))</summary></details>');
-      const dsum = ansEl.querySelector('details.tracewrap');
-      if (wrap && dsum) dsum.appendChild(wrap);
-      result = data;
+      const traceHtml = m.trace.innerHTML;
+      const steps = stepCount;
+      const settle = ()=>{
+        _agentModalClose();
+        if (data){
+          const answerHtml = opts.renderAnswer ? opts.renderAnswer(data) :
+            (data.answer ? '<div class="ai-answer">'+md(data.answer)+'</div>'+citesHtml(data.citations)
+              : '<div class="empty">No grounded answer was available for that - try again.</div>');
+          el.innerHTML = answerHtml+
+            '<details class="tracewrap"><summary>How this was answered ('+steps+' step(s))</summary>'+
+            '<div class="trace-wrap" style="margin-top:8px"><div class="trace">'+traceHtml+'</div></div></details>';
+        } else {
+          el.innerHTML = '<div class="empty">The retrieval agent could not answer this - try again.</div>';
+        }
+        resolve(data);
+      };
+      if (data){
+        push('<div class="am-done"><span class="check">&check;</span>Answer ready</div>');
+        setTimeout(settle, 650);
+      } else settle();
     }
-    else if (ev.type==='error'){
-      finished = true; clearInterval(ticker); setTimer('');
-      ansEl.insertAdjacentHTML('beforeend', '<div class="empty">'+esc(ev.message)+'</div>');
-    }
-  }).then(()=>{ clearInterval(ticker);
-    return result;
-  }).catch(ex=>{
-    clearInterval(ticker);
-    ansEl.innerHTML += '<div class="empty">Stream failed: '+esc(ex.message)+'</div>';
-    return null;
+
+    streamNdjson(endpoint, Object.assign({}, body, {stream:true}), ev=>{
+      if (finished) return;
+      if (ev.type==='heartbeat'){ setTimer(); return; }
+      else if (ev.type==='plan'){
+        push(_traceStepCard('plan', 'plan', ev.label||'Planning the lookup', ev.detail));
+      }
+      else if (ev.type==='tool_call'){
+        const card = push('<div class="tstep">'+_traceIcon('pending')+
+          '<div class="body"><div class="lbl">'+esc(ev.label)+'</div>'+
+          (ev.detail?'<div class="det">'+esc(ev.detail)+'</div>':'')+
+          _traceMcpLine(ev)+'</div></div>');
+        (pendingByTool[ev.tool]=pendingByTool[ev.tool]||[]).push(card);
+      }
+      else if (ev.type==='tool_result'){
+        const q = pendingByTool[ev.tool];
+        const card = (q && q.length) ? q.shift() : null;
+        const ok = ev.ok !== false;
+        const cls = ok ? 'done' : 'err';
+        const html = _traceIcon(ok?'ok':'err')+
+          '<div class="body"><div class="lbl">'+esc(ev.label)+'</div>'+
+          (ev.detail?'<div class="det">'+esc(ev.detail)+'</div>':'')+
+          _traceMcpLine(ev)+'</div>'+
+          (ev.duration_ms!=null?'<div class="dur">'+_traceFmtS(ev.duration_ms)+'</div>':'');
+        if (card){ card.className = 'tstep '+cls; card.innerHTML = html; }
+        else { push('<div class="tstep '+cls+'">'+html+'</div>'); }
+      }
+      else if (ev.type==='doc_search'){
+        push(_traceStepCard('done', 'ok', ev.label||'Reading plant documents', ev.detail));
+      }
+      else if (ev.type==='composing'){
+        if (composeCard){ composeCard.querySelector('.lbl').textContent = ev.label||''; }
+        else{
+          composeCard = push('<div class="tstep compose">'+_traceIcon('pending')+
+            '<div class="body"><div class="lbl">'+esc(ev.label||'')+'</div></div></div>');
+        }
+      }
+      else if (ev.type==='result'){
+        if (composeCard){ composeCard.className='tstep done';
+          composeCard.innerHTML = _traceIcon('ok')+'<div class="body"><div class="lbl">Answer composed</div></div>'; }
+        finish(ev.data || {});
+      }
+      else if (ev.type==='error'){
+        push('<div class="tstep err">'+_traceIcon('err')+
+          '<div class="body"><div class="lbl">'+esc(ev.message||'The retrieval agent hit an error.')+'</div></div></div>');
+        setTimeout(()=>finish(null), 900);
+      }
+    }).then(()=>{ if(!finished) finish(null); })
+      .catch(ex=>{
+        if (finished) return;
+        clearInterval(ticker);
+        _agentModalClose();
+        el.innerHTML = '<div class="empty">Stream failed: '+esc(ex.message)+'</div>';
+        resolve(null);
+      });
   });
 }
 
