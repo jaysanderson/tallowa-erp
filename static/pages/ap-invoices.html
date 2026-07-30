@@ -74,7 +74,7 @@ async function explain(){
   const t0 = performance.now();
   try{
     const d = await runAgentTrace(out, '/api/ai/ap-error-explain',
-      {ap_no, golden:'ap-error-explain', ...(DEMO_MODE?{mode:'cached'}:{})},
+      {ap_no},
       {title:'Explaining the posting failure',
        sub:'Reading the invoice record and the AP authorisation policy for '+esc(ap_no)+'.'});
     const ms1 = Math.round(performance.now()-t0);
@@ -125,7 +125,7 @@ document.getElementById('apBatchGo').onclick = async ()=>{
   const out = document.getElementById('apBatchOut');
   const t0 = performance.now();
   const d = await runAgentTrace(out, '/api/ai/ap-batch-fix',
-    {ap_no, golden:'ap-batch-fix', ...(DEMO_MODE?{mode:'cached'}:{})},
+    {ap_no},
     {title:'Proposing the batch correction',
      sub:'Checking the vendor master and the AP authorisation policy for a shared fix.'});
   const ms = Math.round(performance.now()-t0);

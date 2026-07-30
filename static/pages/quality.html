@@ -59,7 +59,7 @@ wf.set('rank', 'current');
     wf.set('rank', 'current');
     const t0 = performance.now();
     const d = await runAgentTrace('fpyrootcause', '/api/ai/fpy-root-cause',
-      {line:'A-2', golden:'fpy-root-cause', ...(DEMO_MODE?{mode:'cached'}:{})},
+      {line:'A-2'},
       {title:'Ranking the root-cause suspects',
        sub:'Checking the defect register, raw-lot history, machine service record and shift notes for line A-2.'});
     const ms = Math.round(performance.now()-t0);
@@ -116,7 +116,7 @@ async function loadDraft(){
     btn.disabled = true;
     const t0 = performance.now();
     const d = await runAgentTrace('draftOut', '/api/ai/8d-draft',
-      {line:'A-2', golden:'8d-draft', ...(DEMO_MODE?{mode:'cached'}:{})},
+      {line:'A-2'},
       {title:'Drafting the 8D report',
        sub:'Pulling the root-cause evidence, live containment status and the QP-8D procedure.',
        renderAnswer: dd=>

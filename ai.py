@@ -1717,12 +1717,8 @@ def make_handler(name: str):
             routed = AGENT_ROUTED_FEATURES.get(name)
             if routed:
                 want_tool, question_fn = routed
-                golden = body.get("golden") or name
-                if body.get("mode") == "cached":
-                    gen = cached_agent_feature_stream(want_tool, golden)
-                else:
-                    bearer = (req.headers.get("authorization") or "").removeprefix("Bearer ").strip() or None
-                    gen = agent_feature_stream(question_fn(body), bearer, want_tool, golden)
+                bearer = (req.headers.get("authorization") or "").removeprefix("Bearer ").strip() or None
+                gen = agent_feature_stream(question_fn(body), bearer, want_tool)
             else:
                 gen = stream_feature(name, body)
             return StreamingResponse(
@@ -1998,12 +1994,8 @@ async def _8d_draft_events(body: dict):
 async def ai_8d_draft(req: Request, user: dict = Depends(current_user)):
     body = await req.json()
     if body.get("stream"):
-        golden = body.get("golden") or "8d-draft"
-        if body.get("mode") == "cached":
-            gen = cached_agent_feature_stream("ai_8d_draft", golden)
-        else:
-            bearer = (req.headers.get("authorization") or "").removeprefix("Bearer ").strip() or None
-            gen = agent_feature_stream(_8d_question(body), bearer, "ai_8d_draft", golden)
+        bearer = (req.headers.get("authorization") or "").removeprefix("Bearer ").strip() or None
+        gen = agent_feature_stream(_8d_question(body), bearer, "ai_8d_draft")
         return StreamingResponse(
             (json.dumps(ev) + "\n" async for ev in gen),
             media_type="application/x-ndjson")
@@ -2283,13 +2275,8 @@ async def _ctp_commit_events(body: dict):
 async def ai_ctp_commit(req: Request, user: dict = Depends(current_user)):
     body = await req.json()
     if body.get("stream"):
-        expedite = bool(body.get("expedite"))
-        golden = body.get("golden") or ("ctp-commit-expedite" if expedite else "ctp-commit")
-        if body.get("mode") == "cached":
-            gen = cached_agent_feature_stream("ai_ctp_commit", golden)
-        else:
-            bearer = (req.headers.get("authorization") or "").removeprefix("Bearer ").strip() or None
-            gen = agent_feature_stream(_ctp_question(body), bearer, "ai_ctp_commit", golden)
+        bearer = (req.headers.get("authorization") or "").removeprefix("Bearer ").strip() or None
+        gen = agent_feature_stream(_ctp_question(body), bearer, "ai_ctp_commit")
         return StreamingResponse(
             (json.dumps(ev) + "\n" async for ev in gen),
             media_type="application/x-ndjson")
@@ -3042,16 +3029,17 @@ async def arag_agent_events(question: str, bearer: str | None, on_context=None):
 # only now genuinely agent-driven, with the agent's real trace on screen.
 # =====================================================================
 async def agent_feature_stream(question: str, bearer: str | None,
-                               want_tool: str, golden_key: str):
+                               want_tool: str):
     """Forwards the real ARAG Retrieval Agent's own NDJSON trace verbatim
     (so the UI shows exactly what the agent is doing - which MCP tool,
     which route, how long it took), then emits one final `result` event
     once the agent answers: the captured exact JSON response from
     `want_tool` if it called it, else a plain prose fallback (still a
     live, honest answer - just without that tool's precise structured
-    fields). Falls back to a cached golden only on a genuine live failure
-    (timeout/error/no grounded data), never on a merely different tool
-    choice."""
+    fields). Never falls back to a cached answer, on a timeout or any
+    other failure - GM directive: "nothing cached, must take the time it
+    takes." A failure is shown honestly, exactly as arag_agent_events
+    reports it, not papered over."""
     captured = {}
 
     def on_context(ctx):
@@ -3061,66 +3049,18 @@ async def agent_feature_stream(question: str, bearer: str | None,
 
     got_result = False
     async for ev in arag_agent_events(question, bearer, on_context=on_context):
-        et = ev.get("type")
-        if et == "answer":
+        if ev.get("type") == "answer":
             data = captured.get("data")
             if data is None:
                 data = {"answer": ev.get("text") or "", "citations": [],
                         "data_used": {}, "cached": False}
             got_result = True
             yield {"type": "result", "data": data}
-        elif et == "error":
-            if not got_result:
-                c = cached_golden(golden_key)
-                if c:
-                    yield {"type": "fallback",
-                           "message": "Showing a captured example while the "
-                                     "live agent recovers."}
-                    yield {"type": "result", "data": c}
-                    got_result = True
-                else:
-                    yield ev
-            continue
         else:
             yield ev
     if not got_result:
         yield {"type": "error",
                "message": "The retrieval agent could not answer this."}
-    yield {"type": "done"}
-
-
-def _synth_agent_trace(want_tool: str) -> list[dict]:
-    """The guaranteed-demo (cached) path shows the same SHAPE of work the
-    live agent does - it calling this exact MCP tool - so a demo never
-    looks architecturally different from a live run, just faster and
-    pre-verified."""
-    route = _mcp_route(want_tool)
-    label = TOOL_LABELS.get(want_tool) or _humanise(want_tool)
-    return [
-        {"type": "plan", "label": "Planning the lookup over the live ERP"},
-        {"type": "tool_call", "label": label, "tool": want_tool,
-         "mcp_kind": "tool", "mcp_route": route},
-        {"type": "tool_result", "ok": True, "tool": want_tool,
-         "label": label + " - data retrieved",
-         "mcp_kind": "tool", "mcp_route": route},
-        {"type": "composing", "label": "Composing the grounded answer"},
-    ]
-
-
-async def cached_agent_feature_stream(want_tool: str, golden_key: str):
-    """Cached-mode twin of agent_feature_stream - same event vocabulary,
-    same synthetic "agent calls want_tool" trace, backed by the captured
-    golden instead of a live run."""
-    yield {"type": "start", "question": ""}
-    c = cached_golden(golden_key)
-    if not c:
-        yield {"type": "error",
-               "message": "No cached example is available for this yet."}
-        yield {"type": "done"}
-        return
-    for ev in _synth_agent_trace(want_tool):
-        yield ev
-    yield {"type": "result", "data": c}
     yield {"type": "done"}
 
 

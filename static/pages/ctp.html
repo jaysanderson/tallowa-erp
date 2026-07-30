@@ -84,7 +84,7 @@ document.getElementById('cgo').onclick = async ()=>{
   document.getElementById('commitCard').style.display='none';
   const t0 = performance.now();
   const d = await runAgentTrace(out, '/api/ai/ctp-commit',
-    {...lastReq, golden:'ctp-commit', ...(DEMO_MODE?{mode:'cached'}:{})},
+    {...lastReq},
     {title:'Checking capable-to-promise',
      sub:'BOM explosion, stock, work-centre load, open POs and contract priority, all in parallel.',
      renderAnswer: dd=>ctpCard(dd)});
@@ -119,7 +119,7 @@ document.getElementById('cwhatif').onclick = async ()=>{
   const out = document.getElementById('whatifOut');
   const t0 = performance.now();
   const d = await runAgentTrace(out, '/api/ai/ctp-commit',
-    {...lastReq, expedite:true, golden:'ctp-commit-expedite', ...(DEMO_MODE?{mode:'cached'}:{})},
+    {...lastReq, expedite:true},
     {title:'Re-running the scenario with the component expedited',
      sub:'Supplier lead time and an order-priority conflict check.',
      renderAnswer: dd=>ctpCard(dd)});

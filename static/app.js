@@ -19,11 +19,13 @@ async function api(path, opts){
 }
 
 /* ---------------- guided demo mode ----------------
-   Reached only via the "Use cases" quick-launch menu (?demo=1). Forces every
-   golden-backed AI call on the page straight to its verified cached answer -
-   correct and instant, no dependency on a live LLM/KB round-trip - so an SE
-   walking a customer through the scripted narrative never hits a slow or
-   flaky live call. Direct/manual navigation still calls live as normal. */
+   Reached only via the "Use cases" quick-launch menu (?demo=1). On the
+   three scripted use-case pages (quality/8D, AP auto-fix, CTP) this ONLY
+   triggers the human input simulator below - every AI call on those
+   pages is always live through the real retrieval agent, cached or not
+   (GM directive: "nothing cached, must take the time it takes"). Other
+   pages' generic aiPanel() calls still use DEMO_MODE to request their
+   verified cached answer, unrelated to this change. */
 const DEMO_MODE = new URLSearchParams(location.search).get('demo') === '1';
 
 /* ---------------- human input simulator ----------------
@@ -386,18 +388,19 @@ function _wfInjectStyle(){
   _wfStyleInjected = true;
   const css = document.createElement('style');
   css.textContent =
-    '.wf{display:flex;align-items:flex-start;margin-bottom:18px}'+
-    '.wf-step{flex:1;min-width:0;padding-right:8px}'+
-    '.wf-step:last-child{flex:0 1 auto;min-width:120px;padding-right:0}'+
+    '.wf{display:flex;flex-wrap:wrap;align-items:flex-start;margin-bottom:18px;row-gap:20px}'+
+    '.wf-step{flex:1 1 150px;min-width:150px;max-width:220px;padding-right:10px}'+
+    '.wf-step:last-child{flex:1 1 120px;min-width:120px}'+
     '.wf-top{display:flex;align-items:center}'+
     '.wf-dot{width:24px;height:24px;border-radius:50%;flex-shrink:0;display:flex;'+
       'align-items:center;justify-content:center;font-size:11px;font-weight:700;'+
       'border:1.5px solid var(--line);background:#fff;color:var(--muted);transition:all .15s}'+
-    '.wf-line{flex:1;height:1.5px;background:var(--line);margin:0 3px}'+
+    '.wf-line{flex:1;height:1.5px;background:var(--line);margin:0 3px;min-width:10px}'+
     '.wf-step:last-child .wf-line{display:none}'+
-    '.wf-label{font-size:12px;font-weight:650;margin-top:8px;color:var(--ink)}'+
-    '.wf-auth{font-size:8.5px;letter-spacing:.08em;text-transform:uppercase;background:var(--chip);'+
-      'color:var(--muted);border-radius:3px;padding:1.5px 5px;margin-left:6px;vertical-align:1px;white-space:nowrap}'+
+    '.wf-label{font-size:12px;font-weight:650;margin-top:8px;color:var(--ink);line-height:1.35}'+
+    '.wf-auth{display:inline-block;font-size:8.5px;letter-spacing:.08em;text-transform:uppercase;'+
+      'background:var(--chip);color:var(--muted);border-radius:3px;padding:2px 5px;margin-top:5px;'+
+      'white-space:nowrap}'+
     '.wf-trace{font-size:10.5px;color:#8892A0;margin-top:4px;font-family:ui-monospace,Menlo,monospace;line-height:1.4}'+
     '.wf-detail{font-size:11.5px;color:var(--muted);margin-top:3px;line-height:1.45}'+
     '.wf-step.done .wf-dot{background:var(--ok);border-color:var(--ok);color:#fff}'+
@@ -428,7 +431,8 @@ function workflowStepper(el, steps){
       const icon = x.status==='done' ? '&#10003;' : (x.status==='blocked' ? '!' : (x.status==='skipped' ? '&ndash;' : String(i+1)));
       return '<div class="wf-step '+x.status+'">'
         +'<div class="wf-top"><div class="wf-dot">'+icon+'</div><div class="wf-line"></div></div>'
-        +'<div class="wf-label">'+esc(s.label)+(x.authority?'<span class="wf-auth">'+esc(x.authority)+'</span>':'')+'</div>'
+        +'<div class="wf-label">'+esc(s.label)+'</div>'
+        +(x.authority?'<div><span class="wf-auth">'+esc(x.authority)+'</span></div>':'')
         +(x.trace?'<div class="wf-trace">'+x.trace+'</div>':'')
         +(x.detail?'<div class="wf-detail">'+esc(x.detail)+'</div>':'')
         +'</div>';
