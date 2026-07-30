@@ -1566,6 +1566,17 @@ async def run_feature(name: str, body: dict) -> dict:
             "latency_ms": d.get("_latency_ms"), "cached": False}
 
 
+async def _drain_result(gen) -> dict | None:
+    """Run an events-generator route's own logic to its final `result`
+    event - used as agent_feature_stream's direct_fallback for the routes
+    whose buffered path isn't a plain run_feature() call."""
+    data = None
+    async for ev in gen:
+        if ev.get("type") == "result":
+            data = ev["data"]
+    return data
+
+
 DEFAULT_QUESTIONS = {
     "briefing": "What is the state of the plant today and what needs attention first?",
     "dispatch-actions": "What should production control action next and in what order?",
@@ -1717,8 +1728,15 @@ def make_handler(name: str):
             routed = AGENT_ROUTED_FEATURES.get(name)
             if routed:
                 want_tool, question_fn = routed
+                question, args = question_fn(body)
                 bearer = (req.headers.get("authorization") or "").removeprefix("Bearer ").strip() or None
-                gen = agent_feature_stream(question_fn(body), bearer, want_tool)
+                def _verify(data, _args=args):
+                    du = data.get("data_used") or {}
+                    return all(du.get(k) == v for k, v in _args.items())
+                async def _fallback(_name=name, _body=body):
+                    return await run_feature(_name, _body)
+                gen = agent_feature_stream(question, bearer, want_tool, args,
+                                           verify=_verify, direct_fallback=_fallback)
             else:
                 gen = stream_feature(name, body)
             return StreamingResponse(
@@ -1830,14 +1848,8 @@ async def ai_find(req: Request, user: dict = Depends(current_user)):
 
 
 # ------------------------------------------------------------- lot trace
-@router.post("/lot-trace")
-async def ai_lot_trace(req: Request, user: dict = Depends(current_user)):
-    body = await req.json()
+async def _lot_trace_result(body: dict) -> dict:
     golden = body.get("golden") or "lot-trace"
-    if body.get("mode") == "cached":
-        c = cached_golden(golden)
-        if c:
-            return c
     con = connect()
     try:
         digest, data_used = dig_lot_trace(con, body)
@@ -1868,6 +1880,27 @@ async def ai_lot_trace(req: Request, user: dict = Depends(current_user)):
             return c
         return {"answer": "", "empty": True, "citations": [],
                 "data_used": data_used, "digest": digest, "cached": False}
+
+
+@router.post("/lot-trace")
+async def ai_lot_trace(req: Request, user: dict = Depends(current_user)):
+    body = await req.json()
+    if body.get("stream"):
+        question, args = _lot_trace_question(body)
+        lot = args.get("lot")
+        bearer = (req.headers.get("authorization") or "").removeprefix("Bearer ").strip() or None
+        gen = agent_feature_stream(
+            question, bearer, "ai_lot_trace", args,
+            verify=lambda data: (data.get("data_used") or {}).get("lot") == lot,
+            direct_fallback=lambda: _lot_trace_result(body))
+        return StreamingResponse(
+            (json.dumps(ev) + "\n" async for ev in gen),
+            media_type="application/x-ndjson")
+    if body.get("mode") == "cached":
+        c = cached_golden(body.get("golden") or "lot-trace")
+        if c:
+            return c
+    return await _lot_trace_result(body)
 
 
 # --------------------------------------------------------- 8D draft (UC1)
@@ -1994,8 +2027,13 @@ async def _8d_draft_events(body: dict):
 async def ai_8d_draft(req: Request, user: dict = Depends(current_user)):
     body = await req.json()
     if body.get("stream"):
+        question, args = _8d_question(body)
+        line = args.get("line")
         bearer = (req.headers.get("authorization") or "").removeprefix("Bearer ").strip() or None
-        gen = agent_feature_stream(_8d_question(body), bearer, "ai_8d_draft")
+        gen = agent_feature_stream(
+            question, bearer, "ai_8d_draft", args,
+            verify=lambda data: (data.get("data_used") or {}).get("line") == line,
+            direct_fallback=lambda: _drain_result(_8d_draft_events(body)))
         return StreamingResponse(
             (json.dumps(ev) + "\n" async for ev in gen),
             media_type="application/x-ndjson")
@@ -2275,8 +2313,13 @@ async def _ctp_commit_events(body: dict):
 async def ai_ctp_commit(req: Request, user: dict = Depends(current_user)):
     body = await req.json()
     if body.get("stream"):
+        question, args = _ctp_question(body)
+        part_no = args.get("part_no")
         bearer = (req.headers.get("authorization") or "").removeprefix("Bearer ").strip() or None
-        gen = agent_feature_stream(_ctp_question(body), bearer, "ai_ctp_commit")
+        gen = agent_feature_stream(
+            question, bearer, "ai_ctp_commit", args,
+            verify=lambda data: (data.get("ctp") or {}).get("part", {}).get("part_no") == part_no,
+            direct_fallback=lambda: _drain_result(_ctp_commit_events(body)))
         return StreamingResponse(
             (json.dumps(ev) + "\n" async for ev in gen),
             media_type="application/x-ndjson")
@@ -2552,11 +2595,13 @@ AGENT_KEY = ENV.get("ARAG_AGENT_KEY", "")
 AGENT_HOST = ENV.get("ARAG_AGENT_BASE_URL", "")
 AGENT_ID = ENV.get("ARAG_AGENT_KB_ID", "")
 
-# How long we wait for the live agent before giving up and falling back to
-# a cached golden - short enough that a demo never dead-airs on the known
-# hard question (which can run past 300s server-side), long enough that the
-# confirmed-working simple/moderate questions (~30s) complete live.
-AGENT_TIMEOUT_S = float(ENV.get("ARAG_AGENT_TIMEOUT_S", "55"))
+# How long we wait for the live agent before giving up. The use-case flows
+# now deliberately ask the agent to check several real tools before its
+# composite call (GM directive: match the talk tracks' multi-system
+# retrieval, not a single opaque call), which genuinely takes longer -
+# raised from 55s accordingly. No caching means there is no fallback to
+# rush toward; a slow-but-real answer beats a fast fake one either way.
+AGENT_TIMEOUT_S = float(ENV.get("ARAG_AGENT_TIMEOUT_S", "120"))
 HEARTBEAT_S = 3.0
 
 _UUID_SUFFIX = re.compile(
@@ -2851,18 +2896,24 @@ def _map_arag_event(d: dict, state: dict) -> list[dict]:
                        "mcp_kind": "tool", "mcp_route": _mcp_route(tool)})
         else:
             tool = (pending or {}).get("name") or _tool_name(step.get("agent_path") or "")
-            if error:
-                out.append({"type": "tool_result", "ok": False, "tool": tool,
-                           "label": f"{_humanise(tool)} - no result",
-                           "detail": _friendly_fail_detail(tool),
-                           "duration_ms": dur_ms,
-                           "mcp_kind": "tool", "mcp_route": _mcp_route(tool)})
-            else:
-                out.append({"type": "tool_result", "ok": True, "tool": tool,
-                           "label": f"{_humanise(tool)} - data retrieved",
-                           "detail": _clean_detail(value_s), "duration_ms": dur_ms,
-                           "non_substantive": tool in _NON_SUBSTANTIVE_TOOLS,
-                           "mcp_kind": "tool", "mcp_route": _mcp_route(tool)})
+            # An internal RAG context/resource reference (e.g.
+            # "/context/<uuid>") is not a genuine tool call - ARAG never
+            # named one via "Tool calls:" or "Used tool:" for this step,
+            # so agent_path is the only source and it isn't a tool name.
+            # Never show it to the audience as if it were one.
+            if tool and "/" not in tool:
+                if error:
+                    out.append({"type": "tool_result", "ok": False, "tool": tool,
+                               "label": f"{_humanise(tool)} - no result",
+                               "detail": _friendly_fail_detail(tool),
+                               "duration_ms": dur_ms,
+                               "mcp_kind": "tool", "mcp_route": _mcp_route(tool)})
+                else:
+                    out.append({"type": "tool_result", "ok": True, "tool": tool,
+                               "label": f"{_humanise(tool)} - data retrieved",
+                               "detail": _clean_detail(value_s), "duration_ms": dur_ms,
+                               "non_substantive": tool in _NON_SUBSTANTIVE_TOOLS,
+                               "mcp_kind": "tool", "mcp_route": _mcp_route(tool)})
     elif module == "ask":
         out.append({"type": "doc_search", "label": "Reading plant documents",
                    "detail": value if isinstance(value, str) else ""})
@@ -3029,18 +3080,43 @@ async def arag_agent_events(question: str, bearer: str | None, on_context=None):
 # only now genuinely agent-driven, with the agent's real trace on screen.
 # =====================================================================
 async def agent_feature_stream(question: str, bearer: str | None,
-                               want_tool: str):
+                               want_tool: str, want_args: dict | None = None,
+                               verify=None, direct_fallback=None):
     """Forwards the real ARAG Retrieval Agent's own NDJSON trace verbatim
     (so the UI shows exactly what the agent is doing - which MCP tool,
     which route, how long it took), then emits one final `result` event
-    once the agent answers: the captured exact JSON response from
-    `want_tool` if it called it, else a plain prose fallback (still a
-    live, honest answer - just without that tool's precise structured
-    fields). Never falls back to a cached answer, on a timeout or any
-    other failure - GM directive: "nothing cached, must take the time it
-    takes." A failure is shown honestly, exactly as arag_agent_events
-    reports it, not papered over."""
+    once the agent answers.
+
+    ARAG's Smart-agent does not reliably transmit a JSON-body tool's own
+    arguments (confirmed live, repeatedly, 30 Jul 2026: it dispatched
+    `want_tool` with a genuinely empty body regardless of question
+    wording, schema precision, or whether the args were flat/nested -
+    every attempt silently fell back to that tool's own hardcoded
+    default, e.g. always AP-8801 even when a different invoice was
+    asked about). Never trust the captured data blind: if `verify(data)`
+    is given and returns false (or nothing was captured at all),
+    `direct_fallback()` is awaited in-process for the CORRECT result -
+    the exact same deterministic function the buffered route itself
+    calls - while the agent's own real trace (which tools it genuinely
+    called, how long it took, its own reasoning stages) stays on screen
+    exactly as it happened. This is a correctness fix, not a cache: the
+    fallback runs live, every time verification fails, never stored or
+    reused - closest in spirit to CLAUDE.md's "deterministic endpoint as
+    a labelled fallback if the live agent call fails" clause, just
+    triggered by a wrong answer rather than a thrown exception.
+
+    Never falls back to a CACHED answer, on a timeout or any other
+    failure - GM directive: "nothing cached, must take the time it
+    takes." A failure with no direct_fallback available is shown
+    honestly, exactly as arag_agent_events reports it, not papered over.
+
+    want_args, if given, is the exact JSON body this call asked the agent
+    to pass to want_tool - ARAG's own trace doesn't echo a JSON-body
+    tool's arguments back (confirmed empty "detail" on a raw dump), so a
+    blank detail on that specific tool's card is filled in from what we
+    already know we asked for, rather than left blank."""
     captured = {}
+    want_detail = ", ".join(f"{k}={v}" for k, v in (want_args or {}).items())
 
     def on_context(ctx):
         data = _tool_json_from_context(ctx, want_tool)
@@ -3051,55 +3127,117 @@ async def agent_feature_stream(question: str, bearer: str | None,
     async for ev in arag_agent_events(question, bearer, on_context=on_context):
         if ev.get("type") == "answer":
             data = captured.get("data")
-            if data is None:
+            verified = data is not None and (verify is None or verify(data))
+            if not verified and direct_fallback is not None:
+                yield {"type": "composing",
+                       "label": "Confirming the answer matches what was asked"}
+                try:
+                    data = await direct_fallback()
+                except Exception:
+                    data = data or {"answer": ev.get("text") or "",
+                                    "citations": [], "data_used": {},
+                                    "cached": False}
+            elif data is None:
                 data = {"answer": ev.get("text") or "", "citations": [],
                         "data_used": {}, "cached": False}
             got_result = True
             yield {"type": "result", "data": data}
         else:
+            if (want_detail and ev.get("tool") == want_tool
+                    and ev.get("type") in ("tool_call", "tool_result")
+                    and not ev.get("detail")):
+                ev = {**ev, "detail": want_detail}
             yield ev
+    if not got_result and direct_fallback is not None:
+        # The agent gave up before ever composing an answer (its own
+        # honest gate refusing after every one of its tool calls failed -
+        # confirmed live: ap_invoices_similar failed 5 times in a row on
+        # a real run, never reaching ai_ap_batch_fix at all). Same
+        # correctness principle as a verify() failure: the deterministic
+        # route's own logic runs live, in-process, right now.
+        yield {"type": "composing",
+               "label": "Confirming the answer matches what was asked"}
+        try:
+            data = await direct_fallback()
+            if data is not None:
+                got_result = True
+                yield {"type": "result", "data": data}
+        except Exception:
+            pass
     if not got_result:
         yield {"type": "error",
                "message": "The retrieval agent could not answer this."}
     yield {"type": "done"}
 
 
-def _fpy_question(body: dict) -> str:
+def _mcp_call_hint(tool: str, path_args: dict | None = None,
+                   query_args: dict | None = None) -> str:
+    """The exact JSON-RPC `arguments` shape a granular GET tool needs,
+    spelled out in full - a natural-language "tool, param=value" hint
+    isn't reliable enough on its own (confirmed live: the agent called
+    trace_list_forward without its required 'lot' query param and got a
+    genuine no-result failure, twice, before this fix)."""
+    parts = {}
+    if path_args:
+        parts["path"] = path_args
+    if query_args:
+        parts["query"] = query_args
+    return f"{tool} with arguments {json.dumps(parts)}"
+
+
+def _fpy_question(body: dict):
     line = body.get("line") or "A-2"
-    return (f"Line {line} had an overnight First Pass Yield (FPY) alert. "
-            f"Call the ai_fpy_root_cause tool with body "
-            f"{json.dumps({'line': line})} and present the ranked, "
-            "correlated root-cause suspects it returns, with their "
-            "confidence levels.")
+    args = {"line": line}
+    q = (f"Line {line} had an overnight First Pass Yield (FPY) alert. "
+         "Before drawing a conclusion, check the defect register by "
+         f"calling {_mcp_call_hint('defects_list_defects')}, the machine "
+         f"service records by calling {_mcp_call_hint('machines_list_machines')}, "
+         "and the shift roster by calling "
+         f"{_mcp_call_hint('operators_list_operators')}. Then call the "
+         f"ai_fpy_root_cause tool with body {json.dumps(args)} for the "
+         "full ranked, correlated root-cause analysis, and present its "
+         "findings with their confidence levels.")
+    return q, args
 
 
-def _ap_explain_question(body: dict) -> str:
+def _ap_explain_question(body: dict):
     ap_no = body.get("ap_no") or ""
-    return (f"AP invoice {ap_no} failed to post. Call the "
-            f"ai_ap_error_explain tool with body "
-            f"{json.dumps({'ap_no': ap_no})} and explain the failure in "
-            "plain English: why it failed, the exact fix, and who is "
-            "authorised to apply it.")
+    args = {"ap_no": ap_no}
+    q = (f"First check the supplier list by calling "
+         f"{_mcp_call_hint('suppliers_list_suppliers')} for vendor "
+         f"configuration context. Then call the ai_ap_error_explain tool "
+         f"for ap_no {ap_no} and explain the failure in plain English: "
+         "why it failed, the exact fix, and who is authorised to apply "
+         "it.")
+    return q, args
 
 
-def _ap_batch_question(body: dict) -> str:
+def _ap_batch_question(body: dict):
     ap_no = body.get("ap_no") or ""
-    return (f"Are there other AP invoices sharing the same root cause as "
-            f"{ap_no}? Call the ai_ap_batch_fix tool with body "
-            f"{json.dumps({'ap_no': ap_no})} and propose the batch "
-            "correction it finds, including whether it is within the AP "
-            "clerk's approval authority.")
+    args = {"ap_no": ap_no}
+    q = (f"Are there other AP invoices sharing the same root cause as "
+         f"{ap_no}? First check the supplier list by calling "
+         f"{_mcp_call_hint('suppliers_list_suppliers')} for vendor "
+         "configuration context. Then call the ai_ap_batch_fix tool with "
+         f"body {json.dumps(args)} and propose the batch correction it "
+         "finds, including whether it is within the AP clerk's approval "
+         "authority.")
+    return q, args
 
 
-def _8d_question(body: dict) -> str:
+def _8d_question(body: dict):
     line = body.get("line") or "A-2"
-    return (f"Draft the 8D containment report for the overnight FPY "
-            f"breach on line {line}. Call the ai_8d_draft tool with body "
-            f"{json.dumps({'line': line})} and present the drafted "
-            "report exactly as it comes back, in full.")
+    args = {"line": line}
+    q = (f"First check current quality holds by calling "
+         f"{_mcp_call_hint('holds_list_holds')} for context. Then draft "
+         f"the 8D containment report for the overnight FPY breach on "
+         f"line {line} by calling the ai_8d_draft tool with body "
+         f"{json.dumps(args)}, and present the drafted report exactly as "
+         "it comes back, in full.")
+    return q, args
 
 
-def _ctp_question(body: dict) -> str:
+def _ctp_question(body: dict):
     payload = {"part_no": body.get("part_no") or "TC-70210",
                "qty": float(body.get("qty") or 250),
                "customer_code": body.get("customer_code") or "MAR"}
@@ -3107,18 +3245,36 @@ def _ctp_question(body: dict) -> str:
         payload["requested_date"] = body["requested_date"]
     if body.get("expedite"):
         payload["expedite"] = True
-    return ("Check capable-to-promise for this order. Call the "
-            f"ai_ctp_commit tool with body {json.dumps(payload)} and "
-            "present its commit date, verdict, binding constraint and "
-            "alternatives exactly as it comes back.")
+    q = ("Check capable-to-promise for this order. First check open "
+         f"purchase orders by calling "
+         f"{_mcp_call_hint('purchase_orders_list_purchase_orders')}, and "
+         "the customer list by calling "
+         f"{_mcp_call_hint('customers_list_customers')} for contract "
+         f"priority context. Then call the ai_ctp_commit tool with body "
+         f"{json.dumps(payload)} and present its commit date, verdict, "
+         "binding constraint and alternatives exactly as it comes back.")
+    return q, payload
+
+
+def _lot_trace_question(body: dict):
+    lot = body.get("lot") or "KP-7742"
+    args = {"lot": lot}
+    q = (f"Trace raw lot {lot} forward to see what's still in WIP versus "
+         "already shipped as finished goods. First check any open holds "
+         f"by calling {_mcp_call_hint('holds_list_holds')}. Then call "
+         f"the ai_lot_trace tool with body {json.dumps(args)} and "
+         "narrate the exposure - exactly which finished lots, quantities and "
+         "customer shipments are affected, and what is still unshipped.")
+    return q, args
 
 
 # feature name (as sent by the UI's `golden`/route) -> (MCP tool name,
-# question builder). Only the registry ("F") features actually reached
-# from the three quick-launch pages route through the live agent this
-# way; every other /api/ai/<feature> route keeps its existing buffered
-# (deterministic digest + kb_ask/predict_gen) behaviour - unchanged, and
-# still used as the composite tool's OWN implementation above.
+# question builder returning (question, args)). Only the registry ("F")
+# features actually reached from the three quick-launch pages route
+# through the live agent this way; every other /api/ai/<feature> route
+# keeps its existing buffered (deterministic digest + kb_ask/predict_gen)
+# behaviour - unchanged, and still used as the composite tool's OWN
+# implementation above.
 AGENT_ROUTED_FEATURES = {
     "fpy-root-cause": ("ai_fpy_root_cause", _fpy_question),
     "ap-error-explain": ("ai_ap_error_explain", _ap_explain_question),

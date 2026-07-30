@@ -7,6 +7,7 @@
     <h3>Ranked root-cause suspects<span class="ai-tag">AGENTIC RANKING - CITED</span><span class="sp"></span>
       <button class="btn orange" id="rankGo">What happened overnight?</button></h3>
     <div id="fpyrootcause"><div class="hint">Runs the retrieval agent over the defect register, raw-lot history, machine service record and shift notes for line A-2.</div></div>
+    <div id="lotImpact" style="margin-top:4px"></div>
   </div>
   <div class="card">
     <h3>Contain the bad lot</h3>
@@ -40,6 +41,28 @@
 </div>
 <script>
 let d8Fields = null;
+function lotImpactCard(d){
+  const t = (d.data_used && d.data_used.trace) || {};
+  let h = '<div class="ai-answer">'+md(d.answer)+'</div>';
+  if (t.finished_lots && t.finished_lots.length){
+    h += '<table style="margin-top:10px"><thead><tr><th>Finished lot</th><th>Run</th>'+
+      '<th class="num">Produced</th><th class="num">Shipped</th><th class="num">On hand</th><th>Status</th></tr></thead><tbody>'+
+      t.finished_lots.map(f=>{
+        const onHand = (f.qty_produced||0)-(f.qty_shipped||0);
+        return '<tr><td class="mono">'+esc(f.lot_no)+'</td><td class="mono">'+esc(f.run_no||'-')+'</td>'+
+          '<td class="num">'+n0(f.qty_produced)+'</td><td class="num">'+n0(f.qty_shipped)+'</td>'+
+          '<td class="num">'+n0(onHand)+'</td><td>'+(f.open_hold?badge('hold'):badge(f.status))+'</td></tr>';
+      }).join('')+'</tbody></table>';
+  }
+  if (t.shipments && t.shipments.length){
+    h += '<div class="hint" style="margin-top:10px">Shipments</div>'+
+      '<table><thead><tr><th>Shipment</th><th>Date</th><th>Customer</th><th class="num">Qty</th></tr></thead><tbody>'+
+      t.shipments.map(s=>'<tr><td class="mono">'+esc(s.shp_no)+'</td><td>'+dt(s.shipped_on)+'</td>'+
+        '<td>'+esc(s.customer_name)+(s.ship_to_name?' - '+esc(s.ship_to_name):'')+'</td>'+
+        '<td class="num">'+n0(s.qty)+'</td></tr>').join('')+'</tbody></table>';
+  }
+  return h+citesHtml(d.citations);
+}
 const wf = workflowStepper('wf', [
   {key:'alert', label:'Overnight alert'},
   {key:'rank', label:'Rank suspects'},
@@ -76,6 +99,18 @@ wf.set('rank', 'current');
     });
     wf.set('contain', 'current', {authority:'Quality inspector'});
     document.getElementById('containGo').disabled = false;
+    document.getElementById('lotImpact').innerHTML =
+      '<div class="row" style="border-top:1px solid var(--line);padding-top:10px">'+
+      '<button class="btn ghost" id="lotImpactGo">Where did lot KP-7742 go? (WIP vs shipped)</button></div>'+
+      '<div id="lotImpactOut" style="margin-top:8px"></div>';
+    document.getElementById('lotImpactGo').onclick = async ()=>{
+      const out = document.getElementById('lotImpactOut');
+      await runAgentTrace(out, '/api/ai/lot-trace',
+        {lot:'KP-7742'},
+        {title:'Tracing lot KP-7742 forward',
+         sub:"Checking what's still on site versus already shipped, and to which customers.",
+         renderAnswer: lotImpactCard});
+    };
   };
 
   document.getElementById('containGo').onclick = async ()=>{

@@ -680,6 +680,12 @@ function _traceMcpLine(ev){
   const route = ev.mcp_route ? ' <span>'+esc(ev.mcp_route)+'</span>' : '';
   return '<div class="mcpline"><span class="b b-navy">'+tag+'</span><b>'+esc(ev.tool)+'</b>'+route+'</div>';
 }
+// ARAG emits two near-identical labels ~1ms apart for the same "reasoning
+// finished" transition ("Reasoning complete - composing the answer" then
+// "Reasoning complete") - shown once, not as two redundant timeline cards.
+const COMPOSE_ALIASES = {
+  'Reasoning complete - composing the answer': 'Reasoning complete',
+};
 
 function runAgentTrace(el, endpoint, body, opts){
   if (typeof el === 'string') el = document.getElementById(el);
@@ -693,7 +699,13 @@ function runAgentTrace(el, endpoint, body, opts){
   // Keyed by tool name, not one shared slot: a multi-step agent run can
   // have more than one tool_call in flight before its tool_result lands
   // (see the Ops Assistant's own trace for the same reasoning).
-  let pendingByTool = {}, composeCard = null, stepCount = 0, finished = false;
+  let pendingByTool = {}, completedByTool = {}, composeCards = [], composeSeen = new Set(), stepCount = 0, finished = false;
+  function markComposeDone(card){
+    if (!card || card.classList.contains('done')) return;
+    card.className = 'tstep compose done';
+    const icon = card.querySelector('.icon');
+    if (icon) icon.outerHTML = _traceIcon('ok');
+  }
 
   function setTimer(){ m.timer.innerHTML = ((Date.now()-t0)/1000).toFixed(1)+'<span>s</span>'; }
   const ticker = setInterval(()=>{ if(!finished) setTimer(); }, 100);
@@ -746,6 +758,11 @@ function runAgentTrace(el, endpoint, body, opts){
       else if (ev.type==='tool_result'){
         const q = pendingByTool[ev.tool];
         const card = (q && q.length) ? q.shift() : null;
+        // ARAG occasionally emits a second tool_result for a call already
+        // resolved (no matching pending card) - a late-arriving duplicate
+        // signal, not a second real call. Once a tool has a completed
+        // card, further results for it update that card, never add one.
+        if (!card && completedByTool[ev.tool]) return;
         const ok = ev.ok !== false;
         const cls = ok ? 'done' : 'err';
         const html = _traceIcon(ok?'ok':'err')+
@@ -753,22 +770,33 @@ function runAgentTrace(el, endpoint, body, opts){
           (ev.detail?'<div class="det">'+esc(ev.detail)+'</div>':'')+
           _traceMcpLine(ev)+'</div>'+
           (ev.duration_ms!=null?'<div class="dur">'+_traceFmtS(ev.duration_ms)+'</div>':'');
-        if (card){ card.className = 'tstep '+cls; card.innerHTML = html; }
-        else { push('<div class="tstep '+cls+'">'+html+'</div>'); }
+        let el2;
+        if (card){ card.className = 'tstep '+cls; card.innerHTML = html; el2 = card; }
+        else { el2 = push('<div class="tstep '+cls+'">'+html+'</div>'); }
+        completedByTool[ev.tool] = el2;
       }
       else if (ev.type==='doc_search'){
         push(_traceStepCard('done', 'ok', ev.label||'Reading plant documents', ev.detail));
       }
       else if (ev.type==='composing'){
-        if (composeCard){ composeCard.querySelector('.lbl').textContent = ev.label||''; }
-        else{
-          composeCard = push('<div class="tstep compose">'+_traceIcon('pending')+
-            '<div class="body"><div class="lbl">'+esc(ev.label||'')+'</div></div></div>');
+        // The agent reports its own reasoning-complete / self-check /
+        // final-compose stages as separate real signals (confirmed on a
+        // raw stream dump: a genuine ~8s gap sits behind "Double-checking
+        // the data" while it re-validates its own answer against what it
+        // retrieved) - each distinct stage gets its own persistent card
+        // instead of overwriting one line, so that self-check moment is
+        // visible rather than blinked past. Near-duplicate labels ARAG
+        // emits back to back for the same transition collapse to one.
+        const label = COMPOSE_ALIASES[ev.label] || ev.label || 'Composing…';
+        if (!composeSeen.has(label)){
+          composeSeen.add(label);
+          composeCards.forEach(markComposeDone);
+          composeCards.push(push('<div class="tstep compose">'+_traceIcon('pending')+
+            '<div class="body"><div class="lbl">'+esc(label)+'</div></div></div>'));
         }
       }
       else if (ev.type==='result'){
-        if (composeCard){ composeCard.className='tstep done';
-          composeCard.innerHTML = _traceIcon('ok')+'<div class="body"><div class="lbl">Answer composed</div></div>'; }
+        composeCards.forEach(markComposeDone);
         finish(ev.data || {});
       }
       else if (ev.type==='error'){

@@ -127,6 +127,39 @@ def catalog() -> list[dict]:
     return _CATALOG
 
 
+# Hand-declared body schemas for the /api/ai/<feature> composite tools -
+# these routes parse `await req.json()` themselves rather than taking a
+# Pydantic model, so FastAPI's OpenAPI doc (what _input_schema normally
+# reads) has no field-level shape to expose for them; the generic
+# "see the OpenAPI doc" placeholder that resulted left the agent's own
+# inputSchema contract with an unconstrained, non-required `body` object.
+# Confirmed live (2026-07-30): the agent submitted an empty body on every
+# one of these calls regardless of what the question asked for - the
+# request always silently fell back to the route's own hardcoded default
+# (e.g. AP-8801, line A-2) no matter which invoice/line/lot was actually
+# meant. Declaring the real fields here, each required, is what makes the
+# agent's own tool-call arguments correct.
+_BODY_SCHEMAS = {
+    "ai_fpy_root_cause": ({"line": {"type": "string", "description": "Line code, e.g. A-2"}},
+                          ["line"]),
+    "ai_8d_draft": ({"line": {"type": "string", "description": "Line code, e.g. A-2"}},
+                   ["line"]),
+    "ai_ap_error_explain": ({"ap_no": {"type": "string", "description": "AP invoice number, e.g. AP-8801"}},
+                            ["ap_no"]),
+    "ai_ap_batch_fix": ({"ap_no": {"type": "string", "description": "AP invoice number, e.g. AP-8801"}},
+                        ["ap_no"]),
+    "ai_ctp_commit": ({
+        "part_no": {"type": "string", "description": "Part number, e.g. TC-70210"},
+        "qty": {"type": "number", "description": "Quantity requested"},
+        "customer_code": {"type": "string", "description": "Customer code, e.g. MAR"},
+        "requested_date": {"type": "string", "description": "Requested delivery date, YYYY-MM-DD - optional"},
+        "expedite": {"type": "boolean", "description": "true to model expediting the binding component - optional"},
+    }, ["part_no", "qty", "customer_code"]),
+    "ai_lot_trace": ({"lot": {"type": "string", "description": "Raw or finished lot number"}},
+                     ["lot"]),
+}
+
+
 def _input_schema(t: dict) -> dict:
     props, req = {}, []
     if t["path_params"]:
@@ -140,9 +173,16 @@ def _input_schema(t: dict) -> dict:
               for p in t["query_params"]}
         props["query"] = {"type": "object", "properties": qp}
     if t["has_body"]:
-        props["body"] = {"type": "object",
-                         "description": "JSON request body (see the OpenAPI "
-                         "doc at /openapi.json for the accepted fields)"}
+        body_spec = _BODY_SCHEMAS.get(t["name"])
+        if body_spec:
+            body_props, body_required = body_spec
+            props["body"] = {"type": "object", "properties": body_props,
+                             "required": body_required}
+            req.append("body")
+        else:
+            props["body"] = {"type": "object",
+                             "description": "JSON request body (see the OpenAPI "
+                             "doc at /openapi.json for the accepted fields)"}
     schema = {"type": "object", "properties": props}
     if req:
         schema["required"] = req
