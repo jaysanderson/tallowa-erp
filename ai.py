@@ -1566,17 +1566,6 @@ async def run_feature(name: str, body: dict) -> dict:
             "latency_ms": d.get("_latency_ms"), "cached": False}
 
 
-async def _drain_result(gen) -> dict | None:
-    """Run an events-generator route's own logic to its final `result`
-    event - used as agent_feature_stream's direct_fallback for the routes
-    whose buffered path isn't a plain run_feature() call."""
-    data = None
-    async for ev in gen:
-        if ev.get("type") == "result":
-            data = ev["data"]
-    return data
-
-
 DEFAULT_QUESTIONS = {
     "briefing": "What is the state of the plant today and what needs attention first?",
     "dispatch-actions": "What should production control action next and in what order?",
@@ -1887,17 +1876,43 @@ async def _lot_trace_result(body: dict) -> dict:
                 "data_used": data_used, "digest": digest, "cached": False}
 
 
+# Same server-side pending-stash pattern as CTP (see _PENDING_CTP above) -
+# the agent calls a no-argument capability tool that returns the real
+# trace_forward/trace_backward genealogy for whatever lot THIS user just
+# asked about, no narration inside it.
+_PENDING_LOT_TRACE: dict[str, str] = {}
+
+
+@router.get("/lot-trace-check")
+def ai_lot_trace_check(req: Request, user: dict = Depends(current_user)):
+    bearer = (req.headers.get("authorization") or "").removeprefix("Bearer ").strip()
+    lot = _PENDING_LOT_TRACE.pop(bearer, None)
+    if not lot:
+        raise HTTPException(404, "No pending lot-trace request for this session")
+    con = connect()
+    try:
+        fwd = trace_forward(con, lot)
+        direction = "forward"
+        if not fwd:
+            fwd = trace_backward(con, lot)
+            direction = "backward"
+    finally:
+        con.close()
+    if not fwd:
+        raise HTTPException(404, f"Lot {lot} not found (raw or finished)")
+    return {"lot": lot, "direction": direction, "trace": fwd}
+
+
 @router.post("/lot-trace")
 async def ai_lot_trace(req: Request, user: dict = Depends(current_user)):
     body = await req.json()
     if body.get("stream"):
-        question, args = _lot_trace_question(body)
-        lot = args.get("lot")
+        lot = body.get("lot") or "KP-7742"
         bearer = (req.headers.get("authorization") or "").removeprefix("Bearer ").strip() or None
-        gen = agent_feature_stream(
-            question, bearer, "ai_lot_trace", args,
-            verify=lambda data: (data.get("data_used") or {}).get("lot") == lot,
-            direct_fallback=lambda: _lot_trace_result(body))
+        if bearer:
+            _PENDING_LOT_TRACE[bearer] = lot
+        gen = agentic_feature_stream(_lot_trace_agentic_question(lot), bearer,
+                                     _lot_trace_build_data(lot))
         return StreamingResponse(
             (json.dumps(ev) + "\n" async for ev in gen),
             media_type="application/x-ndjson")
@@ -2231,6 +2246,38 @@ def ctp_digest_text(con, part_no, qty, customer_code, r, requested_date=None) ->
     return "\n".join(lines)
 
 
+# The agent cannot reliably transmit tool-call ARGUMENTS (confirmed
+# repeatedly, see agent_feature_stream's docstring), but it calls a
+# NO-ARGUMENT tool with 100% reliability in every test this session. CTP's
+# calculation genuinely needs part_no/qty/customer/expedite though - so
+# rather than making the agent pass those (unreliable) or hiding the
+# calculation behind a narration-generating composite tool (the "mocked
+# up" pattern that was explicitly rejected), the exact request is stashed
+# server-side, keyed by the caller's own bearer token, right before the
+# agent run starts. The capability tool the agent calls takes NO
+# arguments - it just looks up "what did THIS logged-in user just ask for"
+# and returns the real compute_ctp() numbers. Nothing is narrated inside
+# it; the agent still does 100% of its own reasoning and wording over the
+# real numbers it gets back, exactly like every other genuinely agentic
+# flow. Popped on read so a stale entry can never leak into a later,
+# unrelated call from the same user.
+_PENDING_CTP: dict[str, dict] = {}
+
+
+@router.get("/ctp-check")
+def ai_ctp_check(req: Request, user: dict = Depends(current_user)):
+    bearer = (req.headers.get("authorization") or "").removeprefix("Bearer ").strip()
+    pending = _PENDING_CTP.pop(bearer, None)
+    if not pending:
+        raise HTTPException(404, "No pending capable-to-promise request for this session")
+    con = connect()
+    try:
+        return compute_ctp(con, pending["part_no"], pending["qty"],
+                           expedite=bool(pending.get("expedite")))
+    finally:
+        con.close()
+
+
 CTP_SYSTEM = (
     ANALYST + "You are the capable-to-promise sales co-pilot. From "
     "the CTP analysis given, answer in this shape: the commit date "
@@ -2315,13 +2362,18 @@ async def _ctp_commit_events(body: dict):
 async def ai_ctp_commit(req: Request, user: dict = Depends(current_user)):
     body = await req.json()
     if body.get("stream"):
-        question, args = _ctp_question(body)
-        part_no = args.get("part_no")
+        payload = {"part_no": body.get("part_no") or "TC-70210",
+                   "qty": float(body.get("qty") or 250),
+                   "customer_code": body.get("customer_code") or "MAR"}
+        if body.get("requested_date"):
+            payload["requested_date"] = body["requested_date"]
+        if body.get("expedite"):
+            payload["expedite"] = True
         bearer = (req.headers.get("authorization") or "").removeprefix("Bearer ").strip() or None
-        gen = agent_feature_stream(
-            question, bearer, "ai_ctp_commit", args,
-            verify=lambda data: (data.get("ctp") or {}).get("part", {}).get("part_no") == part_no,
-            direct_fallback=lambda: _drain_result(_ctp_commit_events(body)))
+        if bearer:
+            _PENDING_CTP[bearer] = payload
+        gen = agentic_feature_stream(_ctp_agentic_question(payload), bearer,
+                                     _ctp_build_data(payload))
         return StreamingResponse(
             (json.dumps(ev) + "\n" async for ev in gen),
             media_type="application/x-ndjson")
@@ -2654,21 +2706,32 @@ def _tool_json_from_context(ctx: dict, want_tool: str):
     rows - _rows_from_context skips those on purpose. Returns the tool's
     exact response dict, untouched by the agent's own narration, or None if
     that tool was never called (or didn't return valid JSON)."""
+    for group in _dicts_from_context(ctx):
+        if group["tool"] == want_tool:
+            return group["data"]
+    return None
+
+
+def _dicts_from_context(ctx: dict) -> list[dict]:
+    """Like _rows_from_context, but for tools whose response is a single
+    JSON OBJECT (a calculation result, a composite tool's payload), not a
+    list of rows. Returns one {tool, data} dict per chunk that parsed as a
+    non-empty JSON object."""
+    out = []
     for chunk in (ctx or {}).get("chunks") or []:
         text = chunk.get("text")
         if not isinstance(text, str):
-            continue
-        m = _CHUNK_TOOL_RE.match(chunk.get("chunk_id") or "")
-        tool = _tool_name(m.group(1) if m else (chunk.get("chunk_id") or ""))
-        if tool != want_tool:
             continue
         try:
             parsed = json.loads(text)
         except Exception:
             continue
-        if isinstance(parsed, dict):
-            return parsed
-    return None
+        if not isinstance(parsed, dict):
+            continue
+        m = _CHUNK_TOOL_RE.match(chunk.get("chunk_id") or "")
+        tool = _tool_name(m.group(1) if m else (chunk.get("chunk_id") or ""))
+        out.append({"tool": tool, "data": parsed})
+    return out
 
 
 # tool name -> plain-English narration for the live step trace. Anything not
@@ -2718,8 +2781,10 @@ TOOL_LABELS = {
     "recurring_list_recurring": "Checking release schedules",
     "audit_list_audit": "Checking the audit trail",
     "ai_lot_trace": "Running the lot-traceability analysis",
+    "ai_list_lot_trace_check": "Running the lot-traceability calculation",
     "ai_8d_draft": "Drafting the 8D report",
     "ai_ctp_commit": "Checking capable-to-promise",
+    "ai_list_ctp_check": "Running the capable-to-promise calculation",
     "ai_fpy_root_cause": "Analysing the FPY root cause",
     "ai_fault_root_cause": "Analysing the fault root cause",
     "ai_ap_error_explain": "Explaining the AP exception",
@@ -3191,16 +3256,19 @@ async def agent_feature_stream(question: str, bearer: str | None,
 # =====================================================================
 async def agentic_feature_stream(question: str, bearer: str | None, build_data=None):
     rows_by_tool: dict[str, list] = {}
+    dict_by_tool: dict[str, dict] = {}
 
     def on_context(ctx):
         for group in _rows_from_context(ctx):
             rows_by_tool[group["tool"]] = group["rows"]
+        for group in _dicts_from_context(ctx):
+            dict_by_tool[group["tool"]] = group["data"]
 
     got_result = False
     async for ev in arag_agent_events(question, bearer, on_context=on_context):
         if ev.get("type") == "answer":
             text = clean(ev.get("text") or "")
-            data = (build_data(text, rows_by_tool) if build_data else
+            data = (build_data(text, rows_by_tool, dict_by_tool) if build_data else
                    {"answer": text, "citations": [], "data_used": {}, "cached": False})
             got_result = True
             yield {"type": "result", "data": data}
@@ -3210,21 +3278,6 @@ async def agentic_feature_stream(question: str, bearer: str | None, build_data=N
         yield {"type": "error",
                "message": "The retrieval agent could not answer this."}
     yield {"type": "done"}
-
-
-def _mcp_call_hint(tool: str, path_args: dict | None = None,
-                   query_args: dict | None = None) -> str:
-    """The exact JSON-RPC `arguments` shape a granular GET tool needs,
-    spelled out in full - a natural-language "tool, param=value" hint
-    isn't reliable enough on its own (confirmed live: the agent called
-    trace_list_forward without its required 'lot' query param and got a
-    genuine no-result failure, twice, before this fix)."""
-    parts = {}
-    if path_args:
-        parts["path"] = path_args
-    if query_args:
-        parts["query"] = query_args
-    return f"{tool} with arguments {json.dumps(parts)}"
 
 
 def _fpy_agentic_question(line: str) -> str:
@@ -3255,7 +3308,7 @@ def _fpy_agentic_question(line: str) -> str:
 
 
 def _fpy_build_data(line: str):
-    def build(text: str, rows_by_tool: dict) -> dict:
+    def build(text: str, rows_by_tool: dict, dict_by_tool: dict) -> dict:
         runs = [r for r in (rows_by_tool.get("runs_list_runs") or [])
                 if (r.get("line_code") or "").upper() == line.upper()
                 and r.get("status") == "completed"
@@ -3297,7 +3350,7 @@ def _ap_explain_agentic_question(ap_no: str) -> str:
 
 
 def _ap_explain_build_data(ap_no: str):
-    def build(text: str, rows_by_tool: dict) -> dict:
+    def build(text: str, rows_by_tool: dict, dict_by_tool: dict) -> dict:
         invs = rows_by_tool.get("ap_invoices_list_ap_invoices") or []
         row = next((r for r in invs if r.get("ap_no") == ap_no), None)
         data_used = ({"ap_no": row.get("ap_no"), "error_code": row.get("error_code"),
@@ -3330,7 +3383,7 @@ def _ap_batch_agentic_question(ap_no: str) -> str:
 
 
 def _ap_batch_build_data(ap_no: str):
-    def build(text: str, rows_by_tool: dict) -> dict:
+    def build(text: str, rows_by_tool: dict, dict_by_tool: dict) -> dict:
         invs = rows_by_tool.get("ap_invoices_list_ap_invoices") or []
         target = next((r for r in invs if r.get("ap_no") == ap_no), None)
         data_used = {}
@@ -3386,42 +3439,96 @@ def _8d_agentic_question(line: str) -> str:
 
 def _8d_build_data(line: str):
     fpy_build = _fpy_build_data(line)
-    def build(text: str, rows_by_tool: dict) -> dict:
-        data = fpy_build(text, rows_by_tool)
+    def build(text: str, rows_by_tool: dict, dict_by_tool: dict) -> dict:
+        data = fpy_build(text, rows_by_tool, dict_by_tool)
         data["fields"] = split_8d_sections(text)
         return data
     return build
 
 
-def _ctp_question(body: dict):
-    payload = {"part_no": body.get("part_no") or "TC-70210",
-               "qty": float(body.get("qty") or 250),
-               "customer_code": body.get("customer_code") or "MAR"}
-    if body.get("requested_date"):
-        payload["requested_date"] = body["requested_date"]
-    if body.get("expedite"):
-        payload["expedite"] = True
-    q = ("Check capable-to-promise for this order. First check open "
-         f"purchase orders by calling "
-         f"{_mcp_call_hint('purchase_orders_list_purchase_orders')}, and "
-         "the customer list by calling "
-         f"{_mcp_call_hint('customers_list_customers')} for contract "
-         f"priority context. Then call the ai_ctp_commit tool with body "
-         f"{json.dumps(payload)} and present its commit date, verdict, "
-         "binding constraint and alternatives exactly as it comes back.")
-    return q, payload
+def _ctp_agentic_question(payload: dict) -> str:
+    part_no, qty = payload["part_no"], payload["qty"]
+    customer_code = payload.get("customer_code") or ""
+    bits = [f"Can we deliver {qty:.0f} x {part_no}"]
+    if payload.get("requested_date"):
+        bits.append(f"by {payload['requested_date']}")
+    if customer_code:
+        bits.append(f"for customer {customer_code}")
+    ask = " ".join(bits) + "?"
+    if payload.get("expedite"):
+        ask += (" Model expediting the binding component's incoming "
+                "purchase order to pull the date in.")
+    return (
+        f"{ask} Investigate using the plant's own live data: call the "
+        "ai_list_ctp_check tool (it takes no arguments - it already knows "
+        "which part, quantity and customer this request is for) to get the "
+        "full capable-to-promise analysis - BOM shortage position, the "
+        "binding constraint, the incoming purchase order, production lead "
+        "time and any conflict with other orders drawing on the same "
+        "shipment. Also check the customer list for this customer's "
+        "contract type and PPM target, since an OEM contract carries firm-"
+        "window delivery commitments. From what ai_list_ctp_check actually "
+        "returns, tell the customer plainly: the commit date, whether it "
+        "beats or misses what was asked, the binding constraint and the "
+        "incoming PO that resolves it, and any conflict with other orders. "
+        "Confident and concise - this is being read out on a live phone "
+        "call. Use only the figures ai_list_ctp_check returns - never "
+        "recompute or guess a date or quantity yourself.")
 
 
-def _lot_trace_question(body: dict):
-    lot = body.get("lot") or "KP-7742"
-    args = {"lot": lot}
-    q = (f"Trace raw lot {lot} forward to see what's still in WIP versus "
-         "already shipped as finished goods. First check any open holds "
-         f"by calling {_mcp_call_hint('holds_list_holds')}. Then call "
-         f"the ai_lot_trace tool with body {json.dumps(args)} and "
-         "narrate the exposure - exactly which finished lots, quantities and "
-         "customer shipments are affected, and what is still unshipped.")
-    return q, args
+def _ctp_build_data(payload: dict):
+    def build(text: str, rows_by_tool: dict, dict_by_tool: dict) -> dict:
+        r = dict_by_tool.get("ai_list_ctp_check")
+        if r is None or (r.get("part") or {}).get("part_no") != payload["part_no"]:
+            # The agent never called the capability tool (or - since it
+            # takes no arguments, this should be rare - context capture
+            # missed it). No narration is faked here: this is the SAME
+            # real calculation, computed live for the SAME request, not a
+            # different or hidden answer.
+            con = connect()
+            try:
+                r = compute_ctp(con, payload["part_no"], payload["qty"],
+                                expedite=bool(payload.get("expedite")))
+            finally:
+                con.close()
+        return {"answer": text, "citations": [], "digest": "", "ctp": r,
+                "cached": False}
+    return build
+
+
+def _lot_trace_agentic_question(lot: str) -> str:
+    return (
+        f"Trace raw lot {lot} forward to see what's still in WIP versus "
+        "already shipped as finished goods. Investigate using the plant's "
+        "own live data: call the ai_list_lot_trace_check tool (it takes no "
+        "arguments - it already knows which lot this request is for) to "
+        "get the full genealogy - which runs consumed it, which finished "
+        "lots it produced, and which shipments and customers are affected. "
+        "Also check current quality holds for anything already blocking "
+        "this material. From what ai_list_lot_trace_check actually "
+        "returns, narrate the exposure: exactly which finished lots, "
+        "quantities and customer shipments are affected, and what is "
+        "still unshipped and on site. Never invent a figure, lot number "
+        "or shipment - use only what ai_list_lot_trace_check returns.")
+
+
+def _lot_trace_build_data(lot: str):
+    def build(text: str, rows_by_tool: dict, dict_by_tool: dict) -> dict:
+        trace = dict_by_tool.get("ai_list_lot_trace_check")
+        if trace is None or trace.get("lot") != lot:
+            con = connect()
+            try:
+                fwd = trace_forward(con, lot)
+                direction = "forward"
+                if not fwd:
+                    fwd = trace_backward(con, lot)
+                    direction = "backward"
+            finally:
+                con.close()
+            trace = {"lot": lot, "direction": direction, "trace": fwd}
+        return {"answer": text, "citations": [], "data_used": trace,
+                "cached": False}
+    return build
 
 
 # feature name (as sent by the UI's `golden`/route) -> (MCP tool name,
