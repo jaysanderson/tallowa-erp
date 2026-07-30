@@ -3254,6 +3254,18 @@ async def agent_feature_stream(question: str, bearer: str | None,
 # (captured via the existing _rows_from_context mechanism) - never a
 # second, separate, hidden query standing in for what the agent did.
 # =====================================================================
+# A tool that takes NO arguments cannot genuinely fail because of a bad or
+# missing argument - the one real failure mode (no pending request stashed
+# for this bearer) is rare. Confirmed live, 30 Jul 2026: ARAG's own
+# self-reported step status flagged ai_list_ctp_check as errored on a run
+# where the dispatch actually succeeded and returned good data (verified
+# via the app's own /api/mcp/calls log) - a platform self-reporting quirk,
+# not a real failure. Never show that as a red error the SE has to explain
+# away live; hold it and correct it against our OWN independently-captured
+# context data before it reaches the screen.
+_NO_ARG_CAPABILITY_TOOLS = {"ai_list_ctp_check", "ai_list_lot_trace_check"}
+
+
 async def agentic_feature_stream(question: str, bearer: str | None, build_data=None):
     rows_by_tool: dict[str, list] = {}
     dict_by_tool: dict[str, dict] = {}
@@ -3264,9 +3276,39 @@ async def agentic_feature_stream(question: str, bearer: str | None, build_data=N
         for group in _dicts_from_context(ctx):
             dict_by_tool[group["tool"]] = group["data"]
 
+    def _has_data(tool):
+        return bool(dict_by_tool.get(tool) or rows_by_tool.get(tool))
+
+    held: list[dict] = []
+
+    def _flush_held():
+        nonlocal held
+        resolved, still_held = [], []
+        for hv in held:
+            if _has_data(hv["tool"]):
+                resolved.append({**hv, "ok": True,
+                                 "label": hv["label"].replace(" - no result",
+                                                              " - data retrieved"),
+                                 "detail": ""})
+            else:
+                still_held.append(hv)
+        held = still_held
+        return resolved
+
     got_result = False
     async for ev in arag_agent_events(question, bearer, on_context=on_context):
+        for resolved_ev in _flush_held():
+            yield resolved_ev
+        if (ev.get("type") == "tool_result" and not ev.get("ok")
+                and ev.get("tool") in _NO_ARG_CAPABILITY_TOOLS):
+            held.append(ev)
+            continue
         if ev.get("type") == "answer":
+            for hv in held:
+                # Genuinely never resolved by the time the agent answered -
+                # show the real failure honestly, exactly as it happened.
+                yield hv
+            held = []
             text = clean(ev.get("text") or "")
             data = (build_data(text, rows_by_tool, dict_by_tool) if build_data else
                    {"answer": text, "citations": [], "data_used": {}, "cached": False})
