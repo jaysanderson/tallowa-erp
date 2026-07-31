@@ -81,7 +81,7 @@ footer{padding:10px 26px;font-size:10.5px;color:#9AA3AB;border-top:1px solid var
   flex-wrap:wrap;row-gap:8px}
 .card h3 .sp{flex:1;min-width:12px}
 .grid2{display:grid;grid-template-columns:1fr 1fr;gap:16px}
-.grid2 > .card{margin-bottom:0}
+.grid2 > .card,.grid2 > .ai-panel{margin-bottom:0}
 @media(max-width:1100px){.grid2{grid-template-columns:1fr}}
 table{width:100%;border-collapse:collapse;font-size:12.8px}
 th{font-size:10.5px;text-transform:uppercase;letter-spacing:.06em;color:var(--muted);
@@ -90,8 +90,8 @@ td{padding:7px 8px;border-bottom:1px solid #ECE8DF;vertical-align:top}
 tr.click{cursor:pointer} tr.click:hover td{background:#FBF9F4}
 .num{text-align:right;font-variant-numeric:tabular-nums}
 /* badges */
-.b{display:inline-block;font-size:10.5px;font-weight:600;border-radius:4px;
-  padding:2px 7px;letter-spacing:.02em;white-space:nowrap}
+.b{display:inline-block;font-size:10.5px;font-weight:600;border-radius:20px;
+  padding:2.5px 9px;letter-spacing:.03em;white-space:nowrap}
 .b-grey{background:#EAECEE;color:#4A555E}.b-blue{background:#E1EBF5;color:#22557E}
 .b-green{background:#E2F0E7;color:#22633C}.b-amber{background:#F8ECD9;color:#8A5A00}
 .b-red{background:#F8E2DF;color:#9A2B22}.b-navy{background:var(--navy);color:#fff}
@@ -120,29 +120,41 @@ textarea{resize:vertical;min-height:70px}
   color:#fff;font-weight:600}
 .ai-tag{font-size:9px;background:var(--orange);color:#fff;border-radius:3px;
   padding:2px 6px;letter-spacing:.1em;font-family:var(--font-mono);text-transform:uppercase}
-.ai-answer{font-size:13.5px;line-height:1.62;margin-top:10px;color:#D6D3DB}
-.ai-answer h1,.ai-answer h2,.ai-answer h3,.ai-answer h4{font-size:13.5px;margin:10px 0 4px;color:#fff}
+/* base rules stay light-safe: .ai-answer/.cites/.cite/.grounding/.spin/.shimmer
+   are also rendered by runAgentTrace() straight into a plain white .card
+   (ctp.html, ap-invoices.html, quality.html) - NOT always inside .ai-panel -
+   so the dark treatment below is scoped to .ai-panel, never the base rule. */
+.ai-answer{font-size:13.5px;line-height:1.62;margin-top:10px}
+.ai-answer h1,.ai-answer h2,.ai-answer h3,.ai-answer h4{font-size:13.5px;margin:10px 0 4px}
 .ai-answer p{margin:6px 0}
 .ai-answer ul,.ai-answer ol{margin:6px 0 6px 20px}
 .ai-answer li{margin:3px 0}
-.ai-answer code{background:rgba(255,255,255,.08);color:#E6C6FF;border-radius:3px;
-  padding:0 4px;font-size:12px;font-family:var(--font-mono)}
-.ai-answer strong{font-weight:650;color:#fff}
+.ai-answer code{background:var(--chip);border-radius:3px;padding:0 4px;font-size:12px;
+  font-family:var(--font-mono)}
+.ai-answer strong{font-weight:650}
 .cites{margin-top:10px;display:flex;flex-wrap:wrap;gap:6px}
-.cite{font-size:11px;background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.14);
-  color:#C7C4CD;border-radius:12px;padding:3px 9px;cursor:pointer}
-.cite:hover{border-color:var(--orange);color:#fff}
-.grounding{font-size:10px;color:#8C8C93;margin-top:10px;font-family:var(--font-mono);
-  text-transform:uppercase;letter-spacing:.05em}
-.spin{display:inline-block;width:14px;height:14px;border:2px solid rgba(255,255,255,.16);
+.cite{font-size:11px;background:var(--chip);border:1px solid var(--line);
+  border-radius:12px;padding:3px 9px;cursor:pointer}
+.cite:hover{border-color:var(--orange)}
+.grounding{font-size:11px;color:var(--muted);margin-top:8px}
+.spin{display:inline-block;width:14px;height:14px;border:2px solid var(--line);
   border-top-color:var(--orange);border-radius:50%;animation:sp .8s linear infinite;
   vertical-align:-2px;margin-right:6px}
 @keyframes sp{to{transform:rotate(360deg)}}
 .shimmer{color:var(--muted);font-size:12.5px;padding:8px 0}
-.ai-panel .shimmer,.ai-panel .empty{color:#9C9CA3}
 .empty{color:var(--muted);font-size:12.5px;padding:14px 0;text-align:center}
-/* content nested inside a dark ai-panel (rich structured answers, chips) needs
-   its own dark-safe variants rather than the light-card defaults */
+/* content nested inside the dark .ai-panel (rich structured answers, chips,
+   citations, loaders) needs its own dark-safe variants */
+.ai-panel .ai-answer{color:#D6D3DB}
+.ai-panel .ai-answer h1,.ai-panel .ai-answer h2,.ai-panel .ai-answer h3,
+.ai-panel .ai-answer h4,.ai-panel .ai-answer strong{color:#fff}
+.ai-panel .ai-answer code{background:rgba(255,255,255,.08);color:#E6C6FF}
+.ai-panel .cite{background:rgba(255,255,255,.06);border-color:rgba(255,255,255,.14);color:#C7C4CD}
+.ai-panel .cite:hover{border-color:var(--orange);color:#fff}
+.ai-panel .grounding{color:#8C8C93;font-family:var(--font-mono);text-transform:uppercase;
+  letter-spacing:.05em;font-size:10px}
+.ai-panel .spin{border-color:rgba(255,255,255,.16)}
+.ai-panel .shimmer,.ai-panel .empty{color:#9C9CA3}
 .ai-panel .qchip{background:rgba(255,255,255,.05);border-color:rgba(255,255,255,.16);color:#D6D3DB}
 .ai-panel .qchip:hover{border-color:var(--orange);color:var(--orange)}
 .ai-panel .kpi{background:rgba(255,255,255,.05);border-color:rgba(255,255,255,.14)}
@@ -153,6 +165,9 @@ textarea{resize:vertical;min-height:70px}
 .ai-panel th{color:#9C9CA3;border-bottom-color:rgba(255,255,255,.16)}
 .ai-panel td{border-bottom-color:rgba(255,255,255,.08)}
 .ai-panel tr.urgent-row td{background:rgba(255,122,122,.08)}
+.ai-panel .hint{color:#9C9CA3}
+.ai-panel .btn.ghost{color:#EDEBF0;border-color:rgba(255,255,255,.22)}
+.ai-panel .btn.ghost:hover{border-color:var(--orange);color:var(--orange)}
 /* agent steps */
 .steps{margin-top:10px}
 .step{border:1px solid var(--line);border-radius:7px;padding:9px 12px;margin-bottom:8px;
@@ -163,8 +178,8 @@ textarea{resize:vertical;min-height:70px}
   border-radius:5px;padding:7px;margin-top:6px;font-family:var(--font-mono)}
 .modal-bg{position:fixed;inset:0;background:rgba(12,12,12,.6);z-index:80;display:none;
   align-items:flex-start;justify-content:center;padding:60px 20px}
-.modal{background:#fff;border-radius:10px;max-width:680px;width:100%;max-height:80vh;
-  overflow-y:auto;padding:20px 22px}
+.modal{background:#fff;border-radius:14px;max-width:680px;width:100%;max-height:80vh;
+  overflow-y:auto;padding:22px 24px}
 .tabs{display:flex;gap:2px;border-bottom:1.5px solid var(--line);margin-bottom:14px}
 .tab{padding:7px 14px;font-size:12.5px;cursor:pointer;border-bottom:2.5px solid transparent;
   color:var(--muted);font-weight:600}

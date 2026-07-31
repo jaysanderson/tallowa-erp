@@ -111,6 +111,11 @@ function badge(s){ if(s==null) return '-';
   return '<span class="b b-'+(BADGE[k]||'grey')+'">'+esc(String(s).replace(/_/g,' '))+'</span>'; }
 
 /* ---------------- tables ---------------- */
+/* A record code/number rendered as plain text (no custom fmt) gets the same
+   monospace treatment as every other identifier in the app (mono IDs, badge
+   words) - keeps every table reading like the same product instead of only
+   the ones a page author remembered to mark up. */
+function _isIdCol(k){ return /_no$/i.test(k) || k === 'code'; }
 /* cols: [{k,label,fmt,cls}] ; opts: {link: row=>url, empty} */
 function table(el, cols, rows, opts){
   opts = opts || {};
@@ -121,7 +126,8 @@ function table(el, cols, rows, opts){
     h += '<tr'+(opts.link?' class="click" onclick="location.href=\''+opts.link(r)+'\'"':'')+'>';
     for (const c of cols){
       const v = c.fmt ? c.fmt(r[c.k], r) : esc(r[c.k]);
-      h += '<td'+(c.cls?' class="'+c.cls+'"':'')+'>'+(v==null||v==='' ? '-' : v)+'</td>';
+      const cls = ((c.cls||'') + (!c.fmt && _isIdCol(c.k) ? ' mono' : '')).trim();
+      h += '<td'+(cls?' class="'+cls+'"':'')+'>'+(v==null||v==='' ? '-' : v)+'</td>';
     }
     h += '</tr>';
   }

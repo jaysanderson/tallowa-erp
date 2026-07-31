@@ -1,4 +1,4 @@
-<div class="card">
+<div class="ai-panel">
   <h3>Ask the live plant <span class="ai-tag">LIVE ERP &middot; MCP-GROUNDED</span></h3>
   <div class="hint" style="margin-bottom:8px">The retrieval agent plans its own lookups over the live plant system through the Tallowa MCP server, queries it while you watch, checks the plant documents, then answers from exactly what it found. Every step is shown as it happens - tool name, arguments and all.</div>
   <div class="row">
@@ -16,65 +16,66 @@
 </div>
 <div id="runout"></div>
 <style>
-/* live agent trace - scoped to the ops assistant page */
-.trace-wrap{background:var(--card);border:1px solid var(--line);border-radius:8px;
-  padding:14px 16px;margin-bottom:16px}
+/* live agent trace - scoped to the ops assistant page. Rendered inside the
+   shared dark .ai-panel (see run() below), so this is the permanent, inline
+   equivalent of the fullscreen agent-modal trace in app.js - same near-black
+   surface and accent choices, just docked in the page instead of overlaid. */
+.trace-wrap{padding:0 0 14px;margin-bottom:2px;border-bottom:1px solid rgba(255,255,255,.12)}
 .trace-head{display:flex;align-items:center;gap:10px;margin-bottom:2px}
-.trace-head h3{font-size:13.5px;margin:0}
-.trace-timer{margin-left:auto;font-size:11.5px;color:var(--muted);font-variant-numeric:tabular-nums;
-  display:flex;align-items:center;gap:6px}
+.trace-head h3{font-size:13.5px;margin:0;color:#fff}
+.trace-timer{margin-left:auto;font-size:11.5px;color:#9C9CA3;font-variant-numeric:tabular-nums;
+  display:flex;align-items:center;gap:6px;font-family:var(--font-mono)}
 .trace-timer .dot{width:6px;height:6px;border-radius:50%;background:var(--orange);
   animation:pulse 1.4s ease-in-out infinite}
 @keyframes pulse{0%,100%{opacity:1;transform:scale(1)}50%{opacity:.45;transform:scale(.72)}}
-.trace-sub{font-size:11px;color:var(--muted);margin:3px 0 9px;padding-bottom:9px;
-  border-bottom:1px solid var(--line)}
+.trace-sub{font-size:11px;color:#8C8C93;margin:3px 0 9px;padding-bottom:9px;
+  border-bottom:1px solid rgba(255,255,255,.1)}
 .trace-sub a{color:var(--orange);font-weight:600}
 .trace-sub a:hover{text-decoration:underline}
 .trace{margin-top:2px;display:flex;flex-direction:column;gap:7px}
 .tstep{display:flex;align-items:flex-start;gap:10px;padding:8px 10px;border-radius:7px;
-  background:#FBFAF7;border:1px solid var(--line);font-size:12.6px;
+  background:rgba(255,255,255,.045);border:1px solid rgba(255,255,255,.1);font-size:12.6px;
   animation:slidein .28s ease both}
 @keyframes slidein{from{opacity:0;transform:translateY(4px)}to{opacity:1;transform:translateY(0)}}
-.tstep.done{background:#fff}
-.tstep.err{background:#FCEEEC;border-color:#F0CCC5}
+.tstep.done{background:rgba(255,255,255,.075)}
+.tstep.err{background:rgba(211,71,54,.16);border-color:rgba(211,71,54,.4)}
 .tstep .icon{flex-shrink:0;width:16px;height:16px;margin-top:1px;position:relative}
-.tstep .icon .ring{width:16px;height:16px;border-radius:50%;border:2px solid var(--line);
+.tstep .icon .ring{width:16px;height:16px;border-radius:50%;border:2px solid rgba(255,255,255,.2);
   border-top-color:var(--orange);animation:sp .8s linear infinite}
-.tstep .icon .tick{width:16px;height:16px;border-radius:50%;background:var(--navy);
+.tstep .icon .tick{width:16px;height:16px;border-radius:50%;background:var(--ok);
   color:#fff;font-size:10px;line-height:16px;text-align:center;font-weight:700}
-.tstep.err .icon .tick{background:var(--bad)}
-.tstep .icon .dim{width:6px;height:6px;border-radius:50%;background:var(--muted);
+.tstep.err .icon .tick{background:#D34736}
+.tstep .icon .dim{width:6px;height:6px;border-radius:50%;background:#6B6B6B;
   margin:5px}
 .tstep .body{flex:1;min-width:0}
-.tstep .lbl{font-weight:600;color:var(--ink)}
-.tstep.err .lbl{color:var(--bad)}
-.tstep .det{color:var(--muted);font-size:11.5px;margin-top:1px;font-family:var(--font-mono)}
-.mcpline{margin-top:4px;font-size:10.8px;color:var(--muted);display:flex;align-items:center;
+.tstep .lbl{font-weight:600;color:#F3F1F5}
+.tstep.err .lbl{color:#FF9B8A}
+.tstep .det{color:#A8A8A8;font-size:11.5px;margin-top:1px;font-family:var(--font-mono)}
+.mcpline{margin-top:4px;font-size:10.8px;color:#999;display:flex;align-items:center;
   gap:6px;font-family:var(--font-mono)}
-.mcpline b{color:var(--ink);font-weight:600}
+.mcpline b{color:#F3F1F5;font-weight:600}
 .mcpline .b{font-size:8.5px;padding:1px 5px;letter-spacing:.06em}
-.tstep .dur{flex-shrink:0;font-size:10.5px;color:var(--muted);font-variant-numeric:tabular-nums;
+.tstep .dur{flex-shrink:0;font-size:10.5px;color:#7A7A7A;font-variant-numeric:tabular-nums;
   margin-top:2px}
-.tstep.plan{background:#EDF3F8;border-color:#D6E3EE}
-.tstep.compose{background:#F3EFE3;border-color:#E7DCC0}
-.tstep.neutral{background:#FBFAF7}
-.tstep .icon .tick.neutral{background:var(--muted);font-size:14px;line-height:15px}
-.tstep .det.neutral-note{font-family:inherit;font-style:italic;color:var(--muted)}
-.fallback-note{font-size:11.5px;color:var(--warn);background:#FBF4E6;border:1px solid #F0DFB8;
-  border-radius:7px;padding:7px 10px;margin:2px 0}
+.tstep.plan{background:rgba(255,255,255,.03);border-color:rgba(255,255,255,.08)}
+.tstep.compose{background:rgba(168,85,247,.14);border-color:rgba(168,85,247,.4)}
+.tstep.neutral{background:rgba(255,255,255,.03)}
+.tstep .icon .tick.neutral{background:#6B6B6B;font-size:14px;line-height:15px}
+.tstep .det.neutral-note{font-family:inherit;font-style:italic;color:#8C8C93}
+.fallback-note{font-size:11.5px;color:#FFB454;background:rgba(245,158,11,.14);
+  border:1px solid rgba(245,158,11,.4);border-radius:7px;padding:7px 10px;margin:2px 0}
 details.tracewrap{margin-top:4px}
-details.tracewrap summary{cursor:pointer;font-size:11.5px;color:var(--muted);
+details.tracewrap summary{cursor:pointer;font-size:11.5px;color:#9C9CA3;
   list-style:none;padding:4px 0;user-select:none}
 details.tracewrap summary::-webkit-details-marker{display:none}
 details.tracewrap summary:before{content:'\25B8 ';color:var(--orange);font-size:10px}
 details.tracewrap[open] summary:before{content:'\25BE ';}
-details.tracewrap summary:hover{color:var(--ink)}
-.ai-headline{font-size:15.5px;font-weight:600;line-height:1.4}
+details.tracewrap summary:hover{color:#fff}
+.ai-headline{font-size:15.5px;font-weight:600;line-height:1.4;color:#fff}
 .rich-group{margin:10px 0 14px}
 .rich-group .kpis{margin-bottom:10px}
-tr.urgent-row td{background:#FCF3F1}
-.amtbar{display:inline-block;width:56px;height:5px;background:#EAECEE;border-radius:3px;
-  overflow:hidden;margin-right:8px;vertical-align:1px}
+.amtbar{display:inline-block;width:56px;height:5px;background:rgba(255,255,255,.12);
+  border-radius:3px;overflow:hidden;margin-right:8px;vertical-align:1px}
 .amtbar span{display:block;height:100%;background:var(--orange)}
 </style>
 <script>
@@ -123,14 +124,16 @@ async function run(){
   if(!query) return;
   const t0=Date.now();
   outEl.innerHTML=
-    '<div class="trace-wrap" id="tw">'+
-      '<div class="trace-head"><h3>Watching the agent work</h3>'+
-        '<div class="trace-timer" id="timer"><span class="dot"></span><span id="timerlabel">Connecting to the retrieval agent&hellip;</span></div>'+
+    '<div class="ai-panel">'+
+      '<div class="trace-wrap" id="tw">'+
+        '<div class="trace-head"><h3>Watching the agent work</h3>'+
+          '<div class="trace-timer" id="timer"><span class="dot"></span><span id="timerlabel">Connecting to the retrieval agent&hellip;</span></div>'+
+        '</div>'+
+        '<div class="trace-sub" id="mcpheadline">'+mcpHeadlineHtml()+'</div>'+
+        '<div class="trace" id="trace"></div>'+
       '</div>'+
-      '<div class="trace-sub" id="mcpheadline">'+mcpHeadlineHtml()+'</div>'+
-      '<div class="trace" id="trace"></div>'+
-    '</div>'+
-    '<div id="ans"></div>';
+      '<div id="ans"></div>'+
+    '</div>';
   const trace=document.getElementById('trace'), ans=document.getElementById('ans');
   const timerLabel=document.getElementById('timerlabel'), timerEl=document.getElementById('timer');
   // Keyed by tool name, not a single variable: a cached-golden replay (and
