@@ -172,10 +172,25 @@ def _erp_refs() -> dict:
     raw_lots = dbq(con, """SELECT rl.lot_no, p.part_no, rl.status
                            FROM raw_lots rl JOIN parts p ON p.id = rl.part_id
                            LIMIT 12""")
+    # ERP's own demo activity window - NOT relative to "today" the way this
+    # module's own seed dates are (erp.db was seeded whenever it was last
+    # built/reset, a different moment to this module's own seed() run).
+    # Date-ranged tables that could be asked about a SPECIFIC ERP-narrative
+    # date (e.g. "the shift roster the night RUN-1111 ran") need to cover
+    # that actual window, not just a few days either side of "today" -
+    # confirmed live: workforce_roster's old range missed RUN-1111's date
+    # entirely, so a real question about it got a genuine (not fake) empty
+    # result. Falls back to a window around today if the ERP tables are
+    # ever empty (never happens in practice, but keeps this from crashing).
+    bounds = dbq1(con, """SELECT min(d) AS lo, max(d) AS hi FROM (
+                          SELECT started_at AS d FROM runs WHERE started_at IS NOT NULL
+                          UNION ALL SELECT found_at FROM defects
+                          UNION ALL SELECT placed_at FROM holds)""")
     con.close()
     return {"lines": lines, "machines": machines, "operators": operators,
             "customers": customers, "parts": parts,
-            "finished_lots": finished_lots, "raw_lots": raw_lots}
+            "finished_lots": finished_lots, "raw_lots": raw_lots,
+            "erp_date_bounds": bounds}
 
 
 def seed() -> None:
@@ -192,6 +207,17 @@ def seed() -> None:
     operators = ref["operators"]
     customers = ref["customers"]
     parts = ref["parts"]
+
+    # Roster coverage window: span the ERP's own activity window (2 days'
+    # margin either side) as well as today, so a question tied to either
+    # a specific ERP-narrative date or "right now" both get real rows.
+    bounds = ref["erp_date_bounds"] or {}
+    if bounds.get("lo") and bounds.get("hi"):
+        lo_offset = (date.fromisoformat(bounds["lo"][:10]) - TODAY).days - 2
+        hi_offset = (date.fromisoformat(bounds["hi"][:10]) - TODAY).days + 2
+    else:
+        lo_offset, hi_offset = -3, 3
+    roster_range = range(min(lo_offset, -3), max(hi_offset, 3) + 1)
 
     # --- narrative anchor: raw lot WF-2261 was consumed on line A-1 -------
     anchor_line = "A-1"
@@ -368,7 +394,7 @@ def seed() -> None:
                     d(-random.randint(120, 1800)),
                     random.choice(["full_time", "full_time", "full_time", "casual"])))
 
-    for offset in range(-3, 4):
+    for offset in roster_range:
         rd = d(offset)
         for o in operators:
             if random.random() < 0.85:
