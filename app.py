@@ -53,7 +53,14 @@ def robots():
     return PlainTextResponse("User-agent: *\nDisallow: /\n")
 
 
-SHELL = (ROOT / "static" / "shell.html").read_text()
+# Cache-bust app.js on every deploy (its mtime changes on each image build)
+# so a browser that already has the shell cached still picks up the latest
+# script instead of silently running stale JS until a hard refresh - bit
+# us once already (a fixed live-agent-trace bug looked unfixed to a viewer
+# on cached JS after the deploy that fixed it).
+_APP_JS_V = str(int((ROOT / "static" / "app.js").stat().st_mtime))
+SHELL = (ROOT / "static" / "shell.html").read_text().replace(
+    '/static/app.js', f'/static/app.js?v={_APP_JS_V}')
 
 # route -> (page file, title). Detail routes reuse their list page's file suffixed -detail.
 PAGES = {
