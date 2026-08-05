@@ -641,8 +641,44 @@ function _traceInjectStyle(){
     '.am-done .check{width:22px;height:22px;border-radius:50%;background:#1E4A32;color:#7FE0A8;'+
       'display:flex;align-items:center;justify-content:center;font-size:13px;flex-shrink:0}'+
     '@keyframes amdone{from{opacity:0;transform:translateY(6px) scale(.96)}'+
-      'to{opacity:1;transform:translateY(0) scale(1)}}';
+      'to{opacity:1;transform:translateY(0) scale(1)}}'+
+    /* per-source system chips - a saturated fill (not the light-theme .b-*
+       pastels) so each reads clearly against the dark modal, one hue per
+       live MCP source so a multi-system run is visible at a glance rather
+       than every tool call looking like the same generic "MCP" tag. */
+    '.sysbadge{font-size:8.5px;font-weight:700;letter-spacing:.05em;padding:1.5px 5px;'+
+      'border-radius:3px;text-transform:uppercase;flex-shrink:0}'+
+    '.sys-erp{background:#43454A;color:#EDEDED}'+
+    '.sys-cmms{background:#8A5A00;color:#fff}'+
+    '.sys-wms{background:#1F5F8F;color:#fff}'+
+    '.sys-ehs{background:#9A2B22;color:#fff}'+
+    '.sys-workforce{background:#22633C;color:#fff}'+
+    '.sys-crm{background:#B04E12;color:#fff}'+
+    '.am-systems{display:flex;align-items:center;flex-wrap:wrap;gap:5px;margin:-6px 0 14px}'+
+    '.am-systems:empty{display:none;margin:0}'+
+    '.am-systems .sys-lbl{font-size:9.5px;color:#7A7A7A;letter-spacing:.1em;'+
+      'text-transform:uppercase;margin-right:2px}'+
+    '.am-systems .sysbadge{animation:tracein .3s ease both}'+
+    /* same chip row, reused once the modal has closed and settled onto the
+       page, so "this answer touched N systems" stays visible - not just a
+       transient thing you had to be watching the live run to notice. */
+    '.am-systems-persist{display:flex;align-items:center;flex-wrap:wrap;gap:5px;margin:2px 0 10px}'+
+    '.am-systems-persist .sys-lbl{font-size:9.5px;color:var(--muted);letter-spacing:.1em;'+
+      'text-transform:uppercase;margin-right:2px}';
   document.head.appendChild(css);
+}
+// key -> {label, cls} for every live MCP source - keep in sync with
+// ai.py's _SOURCE_PREFIXES (server picks the key from the tool name;
+// this only maps that key to display label + colour).
+const SYSTEMS = {
+  erp: {label: 'ERP', cls: 'sys-erp'}, cmms: {label: 'CMMS', cls: 'sys-cmms'},
+  wms: {label: 'WMS', cls: 'sys-wms'}, ehs: {label: 'EHS', cls: 'sys-ehs'},
+  workforce: {label: 'WORKFORCE', cls: 'sys-workforce'}, crm: {label: 'CRM', cls: 'sys-crm'},
+};
+function _sysBadge(ev){
+  const s = SYSTEMS[ev && ev.system] || SYSTEMS.erp;
+  const label = ev && ev.mcp_kind==='prompt' ? s.label+' PROMPT' : s.label;
+  return '<span class="b sysbadge '+s.cls+'">'+esc(label)+'</span>';
 }
 function _agentModalOpen(title, sub){
   _traceInjectStyle();
@@ -653,11 +689,13 @@ function _agentModalOpen(title, sub){
       '<div class="am-timer" id="amtimer">0.0<span>s</span></div></div>'+
     '<div class="am-title">'+esc(title)+'</div>'+
     (sub?'<div class="am-sub">'+sub+'</div>':'')+
+    '<div class="am-systems" id="amsystems"></div>'+
     '<div class="am-trace" id="amtrace"></div>';
   bg.className = 'modal-bg agent-modal-bg';
   bg.onclick = null;  // a live agent run isn't dismissible by an outside click
   bg.style.display = 'flex';
-  return {trace: document.getElementById('amtrace'), timer: document.getElementById('amtimer')};
+  return {trace: document.getElementById('amtrace'), timer: document.getElementById('amtimer'),
+         systems: document.getElementById('amsystems')};
 }
 function _agentModalClose(){
   const bg = document.getElementById('modalbg');
@@ -682,9 +720,8 @@ function _traceStepCard(cls, iconKind, label, detail, durMs){
 }
 function _traceMcpLine(ev){
   if (!ev || !ev.tool) return '';
-  const tag = ev.mcp_kind==='prompt' ? 'MCP PROMPT' : 'MCP';
   const route = ev.mcp_route ? ' <span>'+esc(ev.mcp_route)+'</span>' : '';
-  return '<div class="mcpline"><span class="b b-navy">'+tag+'</span><b>'+esc(ev.tool)+'</b>'+route+'</div>';
+  return '<div class="mcpline">'+_sysBadge(ev)+'<b>'+esc(ev.tool)+'</b>'+route+'</div>';
 }
 // ARAG emits two near-identical labels ~1ms apart for the same "reasoning
 // finished" transition ("Reasoning complete - composing the answer" then
@@ -706,6 +743,21 @@ function runAgentTrace(el, endpoint, body, opts){
   // have more than one tool_call in flight before its tool_result lands
   // (see the Ops Assistant's own trace for the same reasoning).
   let pendingByTool = {}, completedByTool = {}, composeCards = [], composeSeen = new Set(), stepCount = 0, finished = false;
+  // Which of the live MCP sources this run has actually touched so far -
+  // rendered as a growing badge row in the modal so a multi-system answer
+  // is visible while it's happening, not just readable in the fine print
+  // of each step's tool name.
+  let seenSystems = new Set();
+  function renderSystems(){
+    m.systems.innerHTML = seenSystems.size ?
+      '<span class="sys-lbl">Consulting</span>'+
+        Array.from(seenSystems).map(k=>_sysBadge({system:k})).join('') : '';
+  }
+  function noteSystem(ev){
+    if (!ev || !ev.system || seenSystems.has(ev.system)) return;
+    seenSystems.add(ev.system);
+    renderSystems();
+  }
   function markComposeDone(card){
     if (!card || card.classList.contains('done')) return;
     card.className = 'tstep compose done';
@@ -734,7 +786,10 @@ function runAgentTrace(el, endpoint, body, opts){
           const answerHtml = opts.renderAnswer ? opts.renderAnswer(data) :
             (data.answer ? '<div class="ai-answer">'+md(data.answer)+'</div>'+citesHtml(data.citations)
               : '<div class="empty">No grounded answer was available for that - try again.</div>');
-          el.innerHTML = answerHtml+
+          const sysHtml = seenSystems.size ?
+            '<div class="am-systems-persist"><span class="sys-lbl">Sources consulted</span>'+
+              Array.from(seenSystems).map(k=>_sysBadge({system:k})).join('')+'</div>' : '';
+          el.innerHTML = answerHtml+sysHtml+
             '<details class="tracewrap"><summary>How this was answered ('+steps+' step(s))</summary>'+
             '<div class="trace-wrap" style="margin-top:8px"><div class="trace">'+traceHtml+'</div></div></details>';
         } else {
@@ -755,6 +810,7 @@ function runAgentTrace(el, endpoint, body, opts){
         push(_traceStepCard('plan', 'plan', ev.label||'Planning the lookup', ev.detail));
       }
       else if (ev.type==='tool_call'){
+        noteSystem(ev);
         const card = push('<div class="tstep">'+_traceIcon('pending')+
           '<div class="body"><div class="lbl">'+esc(ev.label)+'</div>'+
           (ev.detail?'<div class="det">'+esc(ev.detail)+'</div>':'')+
@@ -762,6 +818,7 @@ function runAgentTrace(el, endpoint, body, opts){
         (pendingByTool[ev.tool]=pendingByTool[ev.tool]||[]).push(card);
       }
       else if (ev.type==='tool_result'){
+        noteSystem(ev);
         const q = pendingByTool[ev.tool];
         const card = (q && q.length) ? q.shift() : null;
         // ARAG occasionally emits a second tool_result for a call already

@@ -2616,15 +2616,45 @@ def _mcp():
 _ROUTE_CACHE: dict[str, str] | None = None
 
 
+def _sources():
+    import sources   # deferred import: sources.mount(app) runs after this module loads
+    return sources
+
+
+# Which of the six live MCP sources a tool name belongs to - derived from
+# the sources.py naming convention (every non-ERP source's tools share its
+# system prefix; ERP's don't share one common prefix, so it's the default).
+# Drives both the trace's system badge and (for the five new sources) the
+# route shown under a tool name, since those sources have no per-tool REST
+# path the way the ERP catalogue does - the source's own /mcp/<key> mount
+# is the real "endpoint hit".
+_SOURCE_PREFIXES = [
+    ("cmms", "CMMS"), ("wms", "WMS"), ("ehs", "EHS"),
+    ("workforce", "WORKFORCE"), ("crm", "CRM"),
+]
+
+
+def _source_for_tool(tool: str) -> tuple[str, str]:
+    for key, label in _SOURCE_PREFIXES:
+        if tool.startswith(key + "_"):
+            return key, label
+    return "erp", "ERP"
+
+
 def _mcp_route(tool: str) -> str:
     """method + path of the REST route an MCP tool actually dispatches to -
     the concrete "MCP endpoint hit" a technical reviewer asked to see,
     distinct from the single public /mcp JSON-RPC frame every call rides
-    on. Blank for a name the catalogue doesn't recognise (never fatal)."""
+    on. For the five newer sources (no per-tool REST path - each is a
+    single JSON-RPC mount) this is that source's own /mcp/<key> endpoint
+    instead. Blank for a name neither catalogue recognises (never fatal)."""
     global _ROUTE_CACHE
     if _ROUTE_CACHE is None:
         _ROUTE_CACHE = {t["name"]: f'{t["method"]} {t["path"]}'
                         for t in _mcp().catalog()}
+        for s in _sources().SOURCES:
+            for t in s["tools"]:
+                _ROUTE_CACHE[t["name"]] = f'POST {s["path"]}'
     return _ROUTE_CACHE.get(tool, "")
 
 
@@ -2918,9 +2948,11 @@ def _map_arag_event(d: dict, state: dict) -> list[dict]:
             state["iteration"] = state.get("iteration", 0) + 1
             state["pending_tool"] = {"name": name, "args": argstr,
                                      "t0": time.monotonic()}
+            sys_key, sys_label = _source_for_tool(name)
             out.append({"type": "tool_call", "label": _humanise(name),
                        "detail": argstr, "tool": name,
-                       "mcp_kind": "tool", "mcp_route": _mcp_route(name)})
+                       "mcp_kind": "tool", "mcp_route": _mcp_route(name),
+                       "system": sys_key, "system_label": sys_label})
         elif name == "task_complete":
             out.append({"type": "composing",
                         "label": "Reasoning complete - composing the answer"})
@@ -2944,7 +2976,8 @@ def _map_arag_event(d: dict, state: dict) -> list[dict]:
                                       "Pulling the " + prompt_m.group(1).replace("-", " "))
             out.append({"type": "tool_result", "ok": True, "tool": prompt_m.group(1),
                        "label": label, "duration_ms": dur_ms,
-                       "mcp_kind": "prompt", "mcp_route": "prompts/get"})
+                       "mcp_kind": "prompt", "mcp_route": "prompts/get",
+                       "system": "erp", "system_label": "ERP"})
         elif used_m:
             tool = _tool_name(used_m.group(1))
             argstr = used_m.group(2).strip()
@@ -2952,6 +2985,7 @@ def _map_arag_event(d: dict, state: dict) -> list[dict]:
                 _, argstr = _parse_call_args(f"Tool calls: x({argstr})")
             else:
                 argstr = ""
+            sys_key, sys_label = _source_for_tool(tool)
             out.append({"type": "tool_result", "ok": not error, "tool": tool,
                        "label": f"{_humanise(tool)} - "
                                 + ("no result" if error else "data retrieved"),
@@ -2960,7 +2994,8 @@ def _map_arag_event(d: dict, state: dict) -> list[dict]:
                        "detail": _friendly_fail_detail(tool) if error else argstr,
                        "duration_ms": dur_ms,
                        "non_substantive": (not error) and tool in _NON_SUBSTANTIVE_TOOLS,
-                       "mcp_kind": "tool", "mcp_route": _mcp_route(tool)})
+                       "mcp_kind": "tool", "mcp_route": _mcp_route(tool),
+                       "system": sys_key, "system_label": sys_label})
         else:
             tool = (pending or {}).get("name") or _tool_name(step.get("agent_path") or "")
             # An internal RAG context/resource reference (e.g.
@@ -2969,18 +3004,21 @@ def _map_arag_event(d: dict, state: dict) -> list[dict]:
             # so agent_path is the only source and it isn't a tool name.
             # Never show it to the audience as if it were one.
             if tool and "/" not in tool:
+                sys_key, sys_label = _source_for_tool(tool)
                 if error:
                     out.append({"type": "tool_result", "ok": False, "tool": tool,
                                "label": f"{_humanise(tool)} - no result",
                                "detail": _friendly_fail_detail(tool),
                                "duration_ms": dur_ms,
-                               "mcp_kind": "tool", "mcp_route": _mcp_route(tool)})
+                               "mcp_kind": "tool", "mcp_route": _mcp_route(tool),
+                               "system": sys_key, "system_label": sys_label})
                 else:
                     out.append({"type": "tool_result", "ok": True, "tool": tool,
                                "label": f"{_humanise(tool)} - data retrieved",
                                "detail": _clean_detail(value_s), "duration_ms": dur_ms,
                                "non_substantive": tool in _NON_SUBSTANTIVE_TOOLS,
-                               "mcp_kind": "tool", "mcp_route": _mcp_route(tool)})
+                               "mcp_kind": "tool", "mcp_route": _mcp_route(tool),
+                               "system": sys_key, "system_label": sys_label})
     elif module == "ask":
         out.append({"type": "doc_search", "label": "Reading plant documents",
                    "detail": value if isinstance(value, str) else ""})
