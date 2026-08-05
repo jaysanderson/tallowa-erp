@@ -15,6 +15,7 @@ from fastapi.staticfiles import StaticFiles
 import ai
 import erp
 import mcp
+import sources
 from database import DB_PATH
 
 ROOT = Path(__file__).resolve().parent
@@ -37,6 +38,7 @@ app = FastAPI(
 app.include_router(erp.router)
 app.include_router(ai.router)
 mcp.mount(app)   # hosted MCP surface - AFTER the routers so the catalogue is complete
+sources.mount(app)   # five adjacent-system MCP sources (/mcp/cmms, /mcp/wms, /mcp/ehs, /mcp/workforce, /mcp/crm)
 
 
 @app.middleware("http")

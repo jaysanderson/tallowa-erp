@@ -1,3 +1,4 @@
 .env
 __pycache__/
 data/erp.db
+data/sources.db
