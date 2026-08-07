@@ -19,7 +19,7 @@ from pathlib import Path
 
 import httpx
 from fastapi import APIRouter, Depends, HTTPException, Request
-from fastapi.responses import JSONResponse, StreamingResponse
+from fastapi.responses import JSONResponse, Response, StreamingResponse
 
 from database import connect, q, q1, now, audit_log
 from erp import (AP_ERROR_CODES, ENV, ap_similar_group, current_user,
@@ -62,6 +62,64 @@ GROUNDED = STYLE + ("Answer only from the provided context and live plant data; 
                     "if something is not covered, say so plainly. ")
 
 router = APIRouter(prefix="/api/ai")
+
+# Real, uploaded KB resources (images/video/manual) known to support a given
+# equipment asset's root-cause answer - keyed by asset_no so the structured
+# builder can attach them without a live KB search (the rids are already
+# known from the manifest; a search would just add latency and a chance of
+# matching the wrong thing for a demo this small).
+MEDIA_BY_ASSET = {
+    "INJ-01": {
+        "manual": "om-inj-01-operation-manual.md",
+        "images": ["inj-01-machine-diagram.png", "defect-comparison-diagram.png",
+                  "inj-01-service-timeline.png"],
+        "video": "om-inj-01-walkthrough.mp4",
+        "video_poster": "om-inj-01-walkthrough-poster.jpg",
+    },
+}
+
+_KB_FILE_FIELD_CACHE: dict[str, tuple[str, str]] = {}  # filename -> (uri, content_type)
+
+
+async def _kb_file_field(filename: str) -> tuple[str, str] | None:
+    """Resolve a manifest filename to its Nuclia file-field download URI and
+    content type, caching after the first lookup (the field id is a stable
+    hash Nuclia assigns at upload time, not something worth re-fetching)."""
+    if filename in _KB_FILE_FIELD_CACHE:
+        return _KB_FILE_FIELD_CACHE[filename]
+    rid = MANIFEST.get(filename)
+    if not rid:
+        return None
+    async with httpx.AsyncClient() as cx:
+        r = await cx.get(f"{HOST}/api/v1/kb/{KB}/resource/{rid}",
+                         params={"show": ["basic", "values"]}, headers=HDRS, timeout=30)
+    if r.status_code != 200:
+        return None
+    files = ((r.json().get("data") or {}).get("files") or {})
+    for field in files.values():
+        f = (field.get("value") or {}).get("file") or {}
+        if f.get("uri"):
+            result = (f["uri"], f.get("content_type") or "application/octet-stream")
+            _KB_FILE_FIELD_CACHE[filename] = result
+            return result
+    return None
+
+
+@router.get("/kb-asset/{filename}", include_in_schema=False)
+async def kb_asset(filename: str):
+    """Unauthenticated by design, same reasoning as the sources.py MCP
+    endpoints: synthetic demo diagrams/video, nothing sensitive, and a plain
+    <img>/<video> tag can't attach the app's JWT header anyway. Scoped to
+    exactly the filenames this module knows about - not an open KB proxy."""
+    resolved = await _kb_file_field(filename)
+    if not resolved:
+        raise HTTPException(404, "Not found")
+    uri, content_type = resolved
+    async with httpx.AsyncClient() as cx:
+        r = await cx.get(f"{HOST}/api/v1{uri}", headers=HDRS, timeout=60)
+    if r.status_code != 200:
+        raise HTTPException(502, "Asset fetch failed")
+    return Response(content=r.content, media_type=content_type)
 
 
 # ------------------------------------------------------------ model calls
@@ -3364,30 +3422,54 @@ def _fpy_agentic_question(line: str) -> str:
     return (
         f"Line {line} had an overnight First Pass Yield (FPY) alert - one "
         f"of its completed runs fell below the plant's target. Investigate "
-        f"using the plant's own live data: check the production runs on "
-        f"line {line} and find the completed one with the WORST FPY (not "
+        f"using the plant's own live data. Call ONLY these tools, by their "
+        "exact names - every one of them takes no ID and returns every "
+        "matching row in one call, so there is never a reason to call a "
+        "get-by-ID tool that needs an ID you don't have: "
+        "runs_list_runs (never runs_get_runs), "
+        "defects_list_defects (never defects_get_defects), "
+        "lots_list_lots (never lots_get_lots), "
+        "machines_list_machines (never machines_get_machines), "
+        "cmms_list_work_orders, cmms_list_pm_schedule, "
+        "workforce_get_roster, and settings_list_settings for the plant's "
+        "real FTT/FPY target (field ftt_target) - never state a target "
+        "percentage you did not actually retrieve from settings_list_settings. "
+        f"Find the completed run on line {line} with the WORST FPY (not "
         "just the most recent one - the alert is about the run that "
         "missed target), the defect register for the defects logged "
         "against that specific run (match by run number exactly), the raw "
         "and finished lot records for the material consumed, the machine "
-        "service records for any equipment involved, and the shift roster "
-        "for who was actually rostered on shift overnight on that line - "
-        "note that a defect record's 'found_by' or a hold's 'placed_by' "
-        "name is the quality inspector who logged it, NOT the shift "
-        "operator; only the shift roster itself says who was on shift. "
-        "Also check the plant's quality procedures for anything relevant "
-        "to root-cause ranking. From what you actually find, rank the "
-        "most likely root-cause suspects - material, equipment, shift - "
-        "by how strongly the evidence correlates with the defects: name "
-        "the specific lot, machine or person, cite the exact run number "
-        "and defect record numbers and the percentage of affected units "
-        "for each, and label each suspect's confidence HIGH, MEDIUM or "
-        "LOW. Double-check every number and name against exactly what you "
-        "retrieved before including it - never invent or misremember a "
-        "figure, run number, lot number, defect number or name.")
+        "service records and any open maintenance work orders for "
+        "equipment involved, and the shift roster for who was actually "
+        "rostered on shift overnight on that line - note that a defect "
+        "record's 'found_by' or a hold's 'placed_by' name is the quality "
+        "inspector who logged it, NOT the shift operator; only the shift "
+        "roster itself says who was on shift. Also check the plant's "
+        "quality procedures for anything relevant to root-cause ranking. "
+        "From what you actually find, rank the most likely root-cause "
+        "suspects - material, equipment, shift - by how strongly the "
+        "evidence correlates with the defects: name the specific lot, "
+        "machine or person, cite the exact run number and defect record "
+        "numbers and the percentage of affected units for each, and label "
+        "each suspect's confidence HIGH, MEDIUM or LOW. Double-check every "
+        "number and name against exactly what you retrieved before "
+        "including it - never invent or misremember a figure, run number, "
+        "lot number, defect number or name.")
+
+
+_CONF_RANK = {"HIGH": 3, "MEDIUM": 2, "LOW": 1}
 
 
 def _fpy_build_data(line: str):
+    """Builds the FULL structured root-cause result as real JSON, computed
+    entirely from the rows the agent actually retrieved via MCP - never
+    from the agent's own prose. This is what the UI renders as structured
+    cards; the agent's free-text `answer` is kept only as supporting
+    narrative alongside it. Confidence/reasoning use the same correlation
+    rules the agent's own prompt asks it to apply (does the suspect's
+    evidence actually tie to the run's defects?), just computed
+    deterministically so the structured panel can never disagree with, or
+    be less reliable than, the numbers behind it."""
     def build(text: str, rows_by_tool: dict, dict_by_tool: dict) -> dict:
         runs = [r for r in (rows_by_tool.get("runs_list_runs") or [])
                 if (r.get("line_code") or "").upper() == line.upper()
@@ -3400,14 +3482,161 @@ def _fpy_build_data(line: str):
                   ((r.get("qty_good") or 0) + (r.get("qty_scrap") or 0)),
                   default=None)
         data_used = {}
+        structured = None
         if run:
             good, scrap = run.get("qty_good") or 0, run.get("qty_scrap") or 0
             denom = good + scrap
-            data_used = {"line": run.get("line_code"), "run_no": run.get("run_no"),
-                        "fpy": round(100.0 * good / denom, 1) if denom else None,
-                        "total_defect_units": scrap}
+            fpy = round(100.0 * good / denom, 1) if denom else None
+            run_no = run.get("run_no")
+            data_used = {"line": run.get("line_code"), "run_no": run_no,
+                        "fpy": fpy, "total_defect_units": scrap}
+
+            # Real target from the plant's own settings - never a number
+            # the model guessed. Missing (agent didn't call the tool) is
+            # shown as missing, not silently defaulted to something that
+            # LOOKS grounded.
+            settings = dict_by_tool.get("settings_list_settings") or {}
+            try:
+                fpy_target = float(settings["ftt_target"])
+            except (KeyError, TypeError, ValueError):
+                fpy_target = None
+
+            defects = [d for d in (rows_by_tool.get("defects_list_defects") or [])
+                      if d.get("run_no") == run_no]
+            total_affected = sum(d.get("qty") or 0 for d in defects)
+
+            def group_by(key):
+                g = {}
+                for d in defects:
+                    v = d.get(key)
+                    if v:
+                        g.setdefault(v, []).append(d)
+                return g
+
+            # --- material suspect: raw lots shared by more than one defect ---
+            material = None
+            lot_groups = group_by("raw_lot_no")
+            if lot_groups:
+                top_lot, top_defs = max(lot_groups.items(),
+                                        key=lambda kv: sum(x.get("qty") or 0 for x in kv[1]))
+                units = sum(x.get("qty") or 0 for x in top_defs)
+                conf = "HIGH" if len(top_defs) >= 2 else "MEDIUM"
+                material = {
+                    "lot_no": top_lot,
+                    "linked_defects": [x["defect_no"] for x in top_defs],
+                    "affected_units": units,
+                    "confidence": conf,
+                    "reasoning": f"{len(top_defs)} defect record(s) on this run trace back "
+                                f"to raw lot {top_lot}, accounting for {units:.0f} of "
+                                f"{total_affected:.0f} affected units."}
+
+            # --- equipment suspect: machine, cross-checked against CMMS ---
+            equipment = None
+            mach_groups = group_by("machine_no")
+            if mach_groups:
+                top_mach, top_defs = max(mach_groups.items(),
+                                         key=lambda kv: sum(x.get("qty") or 0 for x in kv[1]))
+                units = sum(x.get("qty") or 0 for x in top_defs)
+                mrow = next((m for m in (rows_by_tool.get("machines_list_machines") or [])
+                            if m.get("asset_no") == top_mach), None)
+                overdue = (mrow or {}).get("service_state") == "overdue"
+                open_wos = [w for w in (rows_by_tool.get("cmms_list_work_orders") or [])
+                           if w.get("asset_no") == top_mach and w.get("status") != "closed"]
+                conf = ("HIGH" if (overdue and open_wos) else
+                       "MEDIUM" if (overdue or open_wos) else "LOW")
+                bits = []
+                if overdue:
+                    bits.append(f"service overdue since {(mrow or {}).get('next_service_due')}")
+                if open_wos:
+                    bits.append(f"{len(open_wos)} open maintenance work order(s)")
+                equipment = {
+                    "asset_no": top_mach, "name": (mrow or {}).get("name"),
+                    "service_state": (mrow or {}).get("service_state"),
+                    "next_service_due": (mrow or {}).get("next_service_due"),
+                    "open_work_orders": [w.get("wo_no") for w in open_wos],
+                    "linked_defects": [x["defect_no"] for x in top_defs],
+                    "affected_units": units, "confidence": conf,
+                    "reasoning": (f"{len(top_defs)} defect record(s) trace back to "
+                                 f"{top_mach}, accounting for {units:.0f} of "
+                                 f"{total_affected:.0f} affected units"
+                                 + (f" - {', '.join(bits)}." if bits else "."))}
+
+            # --- shift suspect: who was rostered, never inferred beyond that ---
+            roster = rows_by_tool.get("workforce_get_roster") or []
+            if roster:
+                names = ", ".join(f"{p.get('emp_no')} ({p.get('role')})" for p in roster)
+                shift_reason = (f"{len(roster)} operator(s) were rostered on {line} "
+                               f"overnight ({names}), but no defect record ties directly "
+                               "to a specific operator's action.")
+            else:
+                shift_reason = ("No roster record was found for that line, shift and "
+                               "date, so personnel can't be correlated with the defects.")
+            shift = {"personnel": roster, "confidence": "LOW", "reasoning": shift_reason}
+
+            confidences = {"material": (material or {}).get("confidence", "LOW"),
+                          "equipment": (equipment or {}).get("confidence", "LOW"),
+                          "shift": shift["confidence"]}
+            top_suspect = max(confidences, key=lambda k: _CONF_RANK[confidences[k]])
+
+            # --- relationship graph: real entities, real edges, straight from
+            # the same rows above - not Nuclia's generic document NER (which
+            # only ever saw the static procedure corpus, nothing about this
+            # specific run), and not a second, separate query - just the
+            # relationships already established while building the suspects.
+            nodes = [{"id": run_no, "type": "run", "label": run_no}]
+            edges = []
+            for d in defects:
+                nodes.append({"id": d["defect_no"], "type": "defect", "label": d["defect_no"]})
+                edges.append({"from": d["defect_no"], "to": run_no, "label": "found on"})
+            if material:
+                nodes.append({"id": material["lot_no"], "type": "material", "label": material["lot_no"]})
+                for dn in material["linked_defects"]:
+                    edges.append({"from": dn, "to": material["lot_no"], "label": "traced to"})
+            if equipment:
+                nodes.append({"id": equipment["asset_no"], "type": "equipment",
+                              "label": equipment["asset_no"]})
+                for dn in equipment["linked_defects"]:
+                    edges.append({"from": dn, "to": equipment["asset_no"], "label": "occurred on"})
+                for wo in equipment["open_work_orders"]:
+                    nodes.append({"id": wo, "type": "workorder", "label": wo})
+                    edges.append({"from": equipment["asset_no"], "to": wo, "label": "has open"})
+            if roster:
+                nodes.append({"id": "shift", "type": "shift",
+                              "label": f"{roster[0].get('shift', 'shift')} · {line}"})
+                edges.append({"from": run_no, "to": "shift", "label": "staffed by"})
+                for p in roster:
+                    nodes.append({"id": p["emp_no"], "type": "person",
+                                  "label": f"{p['emp_no']} ({p.get('role','')})"})
+                    edges.append({"from": "shift", "to": p["emp_no"], "label": "rostered"})
+            graph = {"nodes": nodes, "edges": edges}
+
+            media = MEDIA_BY_ASSET.get((equipment or {}).get("asset_no"))
+            media_out = None
+            if media:
+                media_out = {
+                    "manual": {"filename": media["manual"],
+                              "url": f"/api/ai/kb-asset/{media['manual']}",
+                              "title": RID_TO_FILE.get(MANIFEST.get(media["manual"]), media["manual"])},
+                    "images": [{"filename": f, "url": f"/api/ai/kb-asset/{f}"}
+                              for f in media["images"]],
+                    "video": {"filename": media["video"], "url": f"/api/ai/kb-asset/{media['video']}",
+                             "poster": f"/api/ai/kb-asset/{media['video_poster']}"},
+                }
+
+            structured = {
+                "run": {"run_no": run_no, "line_code": run.get("line_code"),
+                        "fpy_pct": fpy, "fpy_target_pct": fpy_target,
+                        "qty_good": good, "qty_scrap": scrap},
+                "defects": [{"defect_no": d.get("defect_no"), "code": d.get("code"),
+                            "description": d.get("description"),
+                            "units_affected": d.get("qty"), "severity": d.get("severity")}
+                           for d in defects],
+                "total_affected_units": total_affected,
+                "material": material, "equipment": equipment, "shift": shift,
+                "top_suspect": top_suspect, "media": media_out, "graph": graph,
+            }
         return {"answer": text, "citations": [], "data_used": data_used,
-                "cached": False}
+                "structured": structured, "cached": False}
     return build
 
 

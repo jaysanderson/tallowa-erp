@@ -1,3 +1,38 @@
+<style>
+.rc-sec-head{font-size:11.5px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;
+  color:var(--muted);margin-bottom:8px}
+.ai-panel .rc-sec-head{color:#9C9CA3}
+.rc-defects{margin-top:4px}
+.rc-suspects{display:grid;grid-template-columns:repeat(3,1fr);gap:10px}
+@media (max-width:900px){.rc-suspects{grid-template-columns:1fr}}
+.rc-suspect{border:1px solid var(--line);border-radius:9px;padding:11px 13px;background:var(--card)}
+.ai-panel .rc-suspect{background:rgba(255,255,255,.045);border-color:rgba(255,255,255,.12)}
+.rc-suspect.rc-top{border-color:var(--orange)}
+.rc-suspect-head{display:flex;align-items:center;gap:7px;margin-bottom:7px}
+.rc-suspect-head b{font-size:13px}
+.rc-toptag{font-size:8.5px;font-weight:700;letter-spacing:.06em;color:var(--orange);
+  border:1px solid var(--orange);border-radius:4px;padding:1px 5px}
+.rc-suspect-facts{font-size:11.5px;color:var(--muted);line-height:1.55;margin-bottom:6px}
+.ai-panel .rc-suspect-facts{color:#B7B4BD}
+.rc-suspect-reason{font-size:12.5px;line-height:1.55}
+.rc-empty .rc-suspect-reason{color:var(--muted);font-style:italic}
+.rc-media{margin-top:20px}
+.rc-media-grid{display:flex;gap:12px;flex-wrap:wrap}
+.rc-thumb{display:block;width:150px;border:1px solid var(--line);border-radius:9px;overflow:hidden;
+  background:var(--card);text-decoration:none;color:inherit;position:relative}
+.ai-panel .rc-thumb{background:rgba(255,255,255,.045);border-color:rgba(255,255,255,.12)}
+.rc-thumb:hover{border-color:var(--orange)}
+.rc-thumb img,.rc-thumb video{width:100%;height:96px;object-fit:cover;display:block;background:#0c0c0c}
+.rc-thumb span{display:block;font-size:10.5px;padding:6px 8px;color:var(--muted);text-transform:capitalize}
+.ai-panel .rc-thumb span{color:#9C9CA3}
+.rc-playchip{position:absolute;left:6px;bottom:30px;font-size:9px;font-weight:700;letter-spacing:.03em;
+  background:rgba(0,0,0,.65);color:#fff;padding:2px 7px;border-radius:20px}
+.rc-manual{display:inline-flex;align-items:center;gap:6px;margin-top:12px;font-size:12.5px;
+  color:var(--orange);text-decoration:none;font-weight:600}
+.rc-manual:hover{text-decoration:underline}
+.rc-graph{margin-top:20px;border:1px solid var(--line);border-radius:9px;padding:14px;background:var(--card)}
+.ai-panel .rc-graph{background:rgba(255,255,255,.03);border-color:rgba(255,255,255,.12)}
+</style>
 <h2 class="sect" style="margin-top:0">Overnight FPY alert - Line A-2</h2>
 <div class="card">
   <div id="wf"></div>
@@ -63,6 +98,118 @@ function lotImpactCard(d){
   }
   return h+citesHtml(d.citations);
 }
+const CONF_BADGE = {HIGH:'red', MEDIUM:'amber', LOW:'grey'};
+function confBadge(c){ return '<span class="b b-'+(CONF_BADGE[c]||'grey')+'">'+esc(c||'LOW')+'</span>'; }
+
+function suspectCard(label, s, top){
+  if (!s) return '<div class="rc-suspect rc-empty"><div class="rc-suspect-head"><b>'+esc(label)+'</b>'+
+    confBadge('LOW')+'</div><div class="rc-suspect-reason">No '+esc(label.toLowerCase())+
+    ' could be tied to this run\'s defects from what was retrieved.</div></div>';
+  const bits = [];
+  if (s.lot_no) bits.push('Lot <b class="mono">'+esc(s.lot_no)+'</b>');
+  if (s.asset_no) bits.push('Asset <b class="mono">'+esc(s.asset_no)+'</b>'+(s.name?' - '+esc(s.name):''));
+  if (s.service_state) bits.push('Service: '+badge(s.service_state));
+  if (s.open_work_orders && s.open_work_orders.length) bits.push(s.open_work_orders.length+' open work order(s): '+s.open_work_orders.map(esc).join(', '));
+  if (s.linked_defects) bits.push(s.linked_defects.length+' defect(s): '+s.linked_defects.map(esc).join(', '));
+  if (s.affected_units!=null) bits.push(n0(s.affected_units)+' units affected');
+  if (s.personnel){ bits.push(s.personnel.length ?
+    s.personnel.map(p=>esc(p.emp_no)+' ('+esc(p.role)+')').join(', ') : 'No roster record found'); }
+  return '<div class="rc-suspect'+(top?' rc-top':'')+'">'+
+    '<div class="rc-suspect-head"><b>'+esc(label)+'</b>'+(top?'<span class="rc-toptag">TOP SUSPECT</span>':'')+confBadge(s.confidence)+'</div>'+
+    '<div class="rc-suspect-facts">'+bits.join(' · ')+'</div>'+
+    '<div class="rc-suspect-reason">'+esc(s.reasoning)+'</div></div>';
+}
+
+function mediaPanel(media){
+  if (!media) return '';
+  let h = '<div class="rc-media"><div class="rc-sec-head">Supporting media <span class="hint">from the Knowledge Box</span></div><div class="rc-media-grid">';
+  (media.images||[]).forEach(im=>{
+    h += '<a class="rc-thumb" href="'+esc(im.url)+'" target="_blank" rel="noopener">'+
+      '<img src="'+esc(im.url)+'" loading="lazy" alt=""><span>'+esc(im.filename.replace(/\.[a-z0-9]+$/,'').replace(/-/g,' '))+'</span></a>';
+  });
+  if (media.video){
+    h += '<a class="rc-thumb rc-video" href="'+esc(media.video.url)+'" target="_blank" rel="noopener">'+
+      '<video src="'+esc(media.video.url)+'" poster="'+esc(media.video.poster)+'" preload="metadata" muted playsinline '+
+      'onmouseenter="this.play().catch(()=>{})" onmouseleave="this.pause();this.currentTime=0"></video>'+
+      '<span class="rc-playchip">&#9654; walkthrough</span></a>';
+  }
+  h += '</div>';
+  if (media.manual) h += '<a class="rc-manual" href="'+esc(media.manual.url)+'" target="_blank" rel="noopener">'+
+    '&#128220; '+esc(media.manual.title)+'</a>';
+  h += '</div>';
+  return h;
+}
+
+const GRAPH_COL = {run:0, defect:1, material:2, equipment:2, workorder:3, shift:4, person:4};
+const GRAPH_COLOR = {run:'#A855F7', defect:'#E0685A', material:'#D89A2E', equipment:'#3178A8',
+  workorder:'#8A8A93', shift:'#3C8F5C', person:'#3C8F5C'};
+function renderGraph(g){
+  if (!g || !g.nodes || !g.nodes.length) return '';
+  const byCol = {};
+  g.nodes.forEach(n=>{ const c = GRAPH_COL[n.type]??2; (byCol[c]=byCol[c]||[]).push(n); });
+  const colW = 176, rowH = 44, padX = 16, padY = 20;
+  const maxRows = Math.max(1, ...Object.values(byCol).map(a=>a.length));
+  const cols = Math.max(...Object.keys(byCol).map(Number))+1;
+  const W = padX*2 + colW*cols, H = padY*2 + maxRows*rowH;
+  const pos = {};
+  Object.keys(byCol).forEach(c=>{
+    const rows = byCol[c].length;
+    const offsetY = (maxRows-rows)*rowH/2;
+    byCol[c].forEach((n,i)=>{
+      pos[n.id] = {x: padX + Number(c)*colW + colW/2, y: padY + offsetY + i*rowH + rowH/2, n};
+    });
+  });
+  let svg = '<svg viewBox="0 0 '+W+' '+H+'" style="width:100%;height:auto;display:block">';
+  (g.edges||[]).forEach(e=>{
+    const a = pos[e.from], b = pos[e.to];
+    if (!a || !b) return;
+    svg += '<line x1="'+a.x+'" y1="'+a.y+'" x2="'+b.x+'" y2="'+b.y+'" stroke="rgba(255,255,255,.16)" stroke-width="1.4"/>';
+  });
+  Object.values(pos).forEach(({x,y,n})=>{
+    const color = GRAPH_COLOR[n.type]||'#888';
+    const label = String(n.label||'');
+    const w = Math.min(160, Math.max(56, label.length*6.4+18));
+    svg += '<rect x="'+(x-w/2)+'" y="'+(y-14)+'" width="'+w+'" height="28" rx="7" '+
+      'fill="'+color+'26" stroke="'+color+'" stroke-width="1.3"/>';
+    svg += '<text x="'+x+'" y="'+(y+4)+'" text-anchor="middle" style="font-family:var(--font-mono);font-size:10.5px;fill:#EDEDED">'+
+      esc(label.length>20?label.slice(0,19)+'…':label)+'</text>';
+  });
+  svg += '</svg>';
+  return '<div class="rc-graph"><div class="rc-sec-head">Relationship graph</div>'+svg+'</div>';
+}
+
+function rootCauseCard(d){
+  const s = d.structured;
+  if (!s) return '<div class="ai-answer">'+md(d.answer)+'</div>'+citesHtml(d.citations);
+  const r = s.run;
+  const fpyState = (r.fpy_pct==null || r.fpy_target_pct==null) ? '' :
+    (r.fpy_pct < r.fpy_target_pct ? 'bad' : 'ok');
+  let h = '<div class="kpis" style="margin:0 0 16px">'+
+    '<div class="kpi"><div class="l">Run</div><div class="v mono" style="font-size:16px">'+esc(r.run_no)+'</div></div>'+
+    '<div class="kpi '+fpyState+'"><div class="l">FPY</div><div class="v">'+(r.fpy_pct!=null?r.fpy_pct+'%':'-')+'</div></div>'+
+    '<div class="kpi"><div class="l">Target</div><div class="v">'+(r.fpy_target_pct!=null?r.fpy_target_pct+'%':'not retrieved')+'</div></div>'+
+    '<div class="kpi"><div class="l">Affected units</div><div class="v">'+n0(s.total_affected_units)+'</div></div>'+
+  '</div>';
+  if (s.defects && s.defects.length){
+    h += '<table class="rc-defects"><thead><tr><th>Defect</th><th>Code</th><th class="num">Units</th><th>Severity</th></tr></thead><tbody>'+
+      s.defects.map(x=>'<tr><td class="mono">'+esc(x.defect_no)+'</td><td>'+esc((x.code||'').replace(/_/g,' '))+
+        '</td><td class="num">'+n0(x.units_affected)+'</td><td>'+badge(x.severity)+'</td></tr>').join('')+
+      '</tbody></table>';
+  }
+  h += '<div class="rc-sec-head" style="margin-top:16px">Root-cause ranking</div>'+
+    '<div class="rc-suspects">'+
+      suspectCard('Material', s.material, s.top_suspect==='material')+
+      suspectCard('Equipment', s.equipment, s.top_suspect==='equipment')+
+      suspectCard('Shift', s.shift, s.top_suspect==='shift')+
+    '</div>';
+  h += mediaPanel(s.media);
+  h += renderGraph(s.graph);
+  if (d.answer) h += '<details class="tracewrap" style="margin-top:14px"><summary>Agent narrative</summary>'+
+    '<div class="ai-answer" style="margin-top:8px">'+md(d.answer)+'</div></details>';
+  h += citesHtml(d.citations);
+  return h;
+}
+
 const wf = workflowStepper('wf', [
   {key:'alert', label:'Overnight alert'},
   {key:'rank', label:'Rank suspects'},
@@ -84,7 +231,8 @@ wf.set('rank', 'current');
     const d = await runAgentTrace('fpyrootcause', '/api/ai/fpy-root-cause',
       {line:'A-2'},
       {title:'Ranking the root-cause suspects',
-       sub:'Checking the defect register, raw-lot history, machine service record and shift notes for line A-2.'});
+       sub:'Checking the defect register, raw-lot history, machine service record and shift notes for line A-2.',
+       renderAnswer: rootCauseCard});
     const ms = Math.round(performance.now()-t0);
     btn.disabled = false;
     btn.textContent = 'Run it again';
