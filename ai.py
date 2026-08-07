@@ -2696,6 +2696,10 @@ def _source_for_tool(tool: str) -> tuple[str, str]:
     for key, label in _SOURCE_PREFIXES:
         if tool.startswith(key + "_"):
             return key, label
+    if tool.startswith("ai_"):
+        # This app's own AI capability endpoints - not ERP list lookups,
+        # so they get their own badge rather than wearing ERP's.
+        return "app", "APP"
     return "erp", "ERP"
 
 
@@ -3361,6 +3365,13 @@ async def agent_feature_stream(question: str, bearer: str | None,
 # context data before it reaches the screen.
 _NO_ARG_CAPABILITY_TOOLS = {"ai_list_ctp_check", "ai_list_lot_trace_check"}
 
+# Capability tools the agent sometimes wanders into mid-flow that no agentic
+# feature's answer ever depends on (confirmed live, Aug 2026: the FPY flow
+# called ai_extract_document with no document and painted a scary red "no
+# result" card for a lookup the answer never needed). A genuine failure of
+# one of these is a non-event - shown as a neutral "skipped", never an error.
+_SIDE_QUEST_TOOLS = {"ai_extract_document", "ai_playbook"}
+
 
 async def agentic_feature_stream(question: str, bearer: str | None, build_data=None):
     rows_by_tool: dict[str, list] = {}
@@ -3399,6 +3410,12 @@ async def agentic_feature_stream(question: str, bearer: str | None, build_data=N
         if (ev.get("type") == "tool_result" and not ev.get("ok")
                 and ev.get("tool") in _NO_ARG_CAPABILITY_TOOLS):
             held.append(ev)
+            continue
+        if (ev.get("type") == "tool_result" and not ev.get("ok")
+                and ev.get("tool") in _SIDE_QUEST_TOOLS):
+            yield {**ev, "ok": True, "skip": True, "detail": "",
+                   "label": (ev.get("label") or "").split(" - ")[0]
+                            + " - skipped, not needed for this question"}
             continue
         if ev.get("type") == "error":
             # Held back, not dropped: if the data-only fallback below can
@@ -3457,6 +3474,8 @@ def _fpy_agentic_question(line: str) -> str:
         "workforce_get_roster, and settings_list_settings for the plant's "
         "real FTT/FPY target (field ftt_target) - never state a target "
         "percentage you did not actually retrieve from settings_list_settings. "
+        "Do NOT call ai_extract_document or ai_playbook - there is no "
+        "document to extract and no playbook step in this investigation. "
         f"Find the completed run on line {line} with the WORST FPY (not "
         "just the most recent one - the alert is about the run that "
         "missed target), the defect register for the defects logged "

@@ -32,6 +32,9 @@
 .rc-manual:hover{text-decoration:underline}
 .rc-graph{margin-top:20px;border:1px solid var(--line);border-radius:9px;padding:14px;background:var(--card)}
 .ai-panel .rc-graph{background:rgba(255,255,255,.03);border-color:rgba(255,255,255,.12)}
+/* the contain button carries a long lot+reason label - let it wrap rather
+   than overflow its card at narrower two-column widths */
+#containGo{white-space:normal;text-align:left;line-height:1.4}
 
 /* ---- formal 8D report document ---- */
 .d8r{border:1px solid var(--line);border-radius:10px;background:var(--card);overflow:hidden;

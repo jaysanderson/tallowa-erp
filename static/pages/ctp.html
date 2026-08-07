@@ -87,7 +87,9 @@ function ctpVerdict(c){
   if (!req || !/^\d{4}-\d{2}-\d{2}$/.test(req)) return '';
   const days = Math.round((new Date(c.commit_date) - new Date(req)) / 86400000);
   if (days <= 0) return '<span class="ct-verdict beats">BEATS BY '+(-days)+'D</span>';
-  return '<span class="ct-verdict misses">MISSES BY '+days+'D</span>';
+  const passed = req < new Date().toISOString().slice(0,10);
+  return '<span class="ct-verdict misses">MISSES BY '+days+'D'+
+    (passed ? ' · DATE ALREADY PASSED' : '')+'</span>';
 }
 
 function ctpTimeline(c){
@@ -97,10 +99,11 @@ function ctpTimeline(c){
   const original = c.conflict ? c.conflict.original_po_date : applied;
   const prodStart = new Date(new Date(applied).getTime() + c.receive_buffer_days*86400000)
     .toISOString().slice(0,10);
+  const pulled = c.expedite && original !== applied;
   let stops = [
     {d: today, top:'Today', bot: dt(today)},
-    {d: applied, top:'PO '+c.binding.po.po_no+' arrives'+
-      (c.expedite && original!==applied ? ' (pulled in)' : ''), bot: dt(applied)},
+    {d: applied, top:'PO '+c.binding.po.po_no+' arrives'+(pulled ? ' (pulled in)' : ''),
+     bot: dt(applied)+(pulled ? ' · was '+dt(original) : '')},
     {d: prodStart, top:'Production starts', bot: c.prod_days+' day(s)'+
       (c.rate_per_day ? ' @ '+n0(c.rate_per_day)+'/day' : '')},
     {d: c.commit_date, top:'Commit', bot: dt(c.commit_date)},
@@ -109,26 +112,28 @@ function ctpTimeline(c){
   // today) merge into one labelled stop instead of overprinting each other.
   stops = stops.reduce((acc, s)=>{
     const prev = acc[acc.length-1];
-    if (prev && prev.d === s.d){ prev.top += ' · '+s.top; }
+    if (prev && prev.d === s.d){ prev.top += ' · '+s.top; prev.bot = s.bot || prev.bot; }
     else acc.push(s);
     return acc;
   }, []);
   const t0 = new Date(stops[0].d).getTime(), t1 = new Date(c.commit_date).getTime();
   const span = Math.max(1, t1 - t0), W = 640, PAD = 60;
   const x = d => PAD + (W - 2*PAD) * (new Date(d).getTime() - t0) / span;
-  let svg = '<svg viewBox="0 0 '+W+' 86" style="width:100%;height:auto;display:block">';
+  // max-width caps the stretch so the labels stay label-sized on wide
+  // screens instead of scaling up with the panel.
+  let svg = '<svg viewBox="0 0 '+W+' 62" style="width:100%;max-width:700px;height:auto;display:block;margin:0 auto">';
   svg += '<line x1="'+PAD+'" y1="46" x2="'+(W-PAD)+'" y2="46" stroke="rgba(255,255,255,.25)" stroke-width="2"/>';
   // production span drawn as a thicker orange segment
   svg += '<line x1="'+x(prodStart)+'" y1="46" x2="'+x(c.commit_date)+'" y2="46" stroke="#FF8B4A" stroke-width="4" stroke-linecap="round" opacity=".8"/>';
-  if (c.expedite && original !== applied){
-    svg += '<circle cx="'+Math.min(x(original), W-PAD)+'" cy="46" r="4" fill="none" stroke="rgba(255,255,255,.35)" stroke-dasharray="2 2"/>'+
-      '<text x="'+Math.min(x(original), W-PAD)+'" y="76" text-anchor="middle" font-size="8.5" fill="#77747E">was '+dt(original)+'</text>';
-  }
   stops.forEach((s,i)=>{
     const cx = x(s.d), last = i === stops.length-1;
+    // Edge stops anchor inward so long (possibly merged) labels never
+    // run off the viewBox and clip.
+    const anchor = i===0 ? 'start' : (last ? 'end' : 'middle');
+    const tx = i===0 ? Math.max(6, cx-8) : (last ? Math.min(W-6, cx+8) : cx);
     svg += '<circle cx="'+cx+'" cy="46" r="5" fill="'+(last?'#FF8B4A':'#26262B')+'" stroke="'+(last?'#FF8B4A':'#9C9CA3')+'" stroke-width="1.5"/>';
-    svg += '<text x="'+cx+'" y="'+(i%2 ? 24 : 12)+'" text-anchor="middle" font-size="9.5" font-weight="700" fill="#ECECEF">'+esc(s.top)+'</text>';
-    svg += '<text x="'+cx+'" y="'+(i%2 ? 34 : 22)+'" text-anchor="middle" font-size="8.5" fill="#9C9CA3">'+esc(s.bot)+'</text>';
+    svg += '<text x="'+tx+'" y="'+(i%2 ? 24 : 12)+'" text-anchor="'+anchor+'" font-size="9.5" font-weight="700" fill="#ECECEF">'+esc(s.top)+'</text>';
+    svg += '<text x="'+tx+'" y="'+(i%2 ? 34 : 22)+'" text-anchor="'+anchor+'" font-size="8.5" fill="#9C9CA3">'+esc(s.bot)+'</text>';
   });
   svg += '</svg>';
   return '<div class="ct-sec">Supply plan to commit</div><div class="ct-panel">'+svg+'</div>';

@@ -650,6 +650,7 @@ function _traceInjectStyle(){
     '.sysbadge{font-size:8.5px;font-weight:700;letter-spacing:.05em;padding:1.5px 5px;'+
       'border-radius:3px;text-transform:uppercase;flex-shrink:0}'+
     '.sys-erp{background:#43454A;color:#EDEDED}'+
+    '.sys-app{background:#5B4B8A;color:#EDEDED}'+
     '.sys-cmms{background:#8A5A00;color:#fff}'+
     '.sys-wms{background:#1F5F8F;color:#fff}'+
     '.sys-ehs{background:#9A2B22;color:#fff}'+
@@ -675,6 +676,7 @@ const SYSTEMS = {
   erp: {label: 'ERP', cls: 'sys-erp'}, cmms: {label: 'CMMS', cls: 'sys-cmms'},
   wms: {label: 'WMS', cls: 'sys-wms'}, ehs: {label: 'EHS', cls: 'sys-ehs'},
   workforce: {label: 'WORKFORCE', cls: 'sys-workforce'}, crm: {label: 'CRM', cls: 'sys-crm'},
+  app: {label: 'APP', cls: 'sys-app'},
 };
 function _sysBadge(ev){
   const s = SYSTEMS[ev && ev.system] || SYSTEMS.erp;
@@ -783,6 +785,17 @@ function runAgentTrace(el, endpoint, body, opts){
       if (finished) return;
       finished = true;
       clearInterval(ticker);
+      // Any tool_call still spinning when the answer lands was a lookup the
+      // agent moved on from - resolve it to a neutral state rather than
+      // leaving a forever-pending ring in the persisted trace.
+      Object.values(pendingByTool).forEach(q => q.forEach(card => {
+        card.className = 'tstep';
+        const icon = card.querySelector('.icon');
+        if (icon) icon.outerHTML = _traceIcon('skip');
+        const lbl = card.querySelector('.lbl');
+        if (lbl) lbl.innerHTML += ' - not waited on';
+      }));
+      pendingByTool = {};
       const traceHtml = m.trace.innerHTML;
       const steps = stepCount;
       const settle = ()=>{
@@ -832,8 +845,10 @@ function runAgentTrace(el, endpoint, body, opts){
         // card, further results for it update that card, never add one.
         if (!card && completedByTool[ev.tool]) return;
         const ok = ev.ok !== false;
-        const cls = ok ? 'done' : 'err';
-        const html = _traceIcon(ok?'ok':'err')+
+        // skip: a side-quest lookup the answer never depended on - neutral
+        // grey card, never the red error treatment.
+        const cls = ev.skip ? '' : (ok ? 'done' : 'err');
+        const html = _traceIcon(ev.skip?'skip':(ok?'ok':'err'))+
           '<div class="body"><div class="lbl">'+esc(ev.label)+'</div>'+
           (ev.detail?'<div class="det">'+esc(ev.detail)+'</div>':'')+
           _traceMcpLine(ev)+'</div>'+
