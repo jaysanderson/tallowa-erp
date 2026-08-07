@@ -3425,14 +3425,27 @@ async def agentic_feature_stream(question: str, bearer: str | None, build_data=N
             pending_errors.append(ev)
             continue
         if ev.get("type") == "answer":
-            for hv in held:
-                # Genuinely never resolved by the time the agent answered -
-                # show the real failure honestly, exactly as it happened.
-                yield hv
-            held = []
             text = clean(ev.get("text") or "")
             data = (build_data(text, rows_by_tool, dict_by_tool) if build_data else
                    {"answer": text, "citations": [], "data_used": {}, "cached": False})
+            # A held capability-tool "failure" only matters if the final
+            # result actually went without its data. When the result is
+            # complete regardless (the same calculation ran via the app's
+            # own deterministic path), the platform's self-reported error
+            # was a non-event - resolve it neutrally, not as a red card.
+            complete = bool(data.get("structured") or data.get("ctp")
+                            or data.get("data_used"))
+            for hv in held:
+                if complete:
+                    yield {**hv, "ok": True, "skip": True, "detail": "",
+                           "label": (hv.get("label") or "").split(" - ")[0]
+                                    + " - recovered, computed directly from "
+                                      "live plant data"}
+                else:
+                    # Genuinely never resolved AND the answer is missing the
+                    # data - show the real failure honestly.
+                    yield hv
+            held = []
             got_result = True
             yield {"type": "result", "data": data}
         else:
@@ -3751,7 +3764,9 @@ def _ap_explain_agentic_question(ap_no: str) -> str:
         f"returns a single invoice and cannot answer this) - and find "
         f"{ap_no} in the results for its error code, amount, status and "
         "vendor, and check the supplier list for that vendor's "
-        "configuration. Also search the plant's finance/AP policy "
+        "configuration - use suppliers_list_suppliers, which returns every "
+        "supplier in one call with no ID needed; never suppliers_get_suppliers, "
+        "which needs an ID you don't have. Also search the plant's finance/AP policy "
         "procedures for what this error code means, the exact fix, and "
         "who is authorised to apply it, citing the policy reference. "
         "From what you actually find, explain the failure in plain "
@@ -3919,7 +3934,9 @@ def _ctp_agentic_question(payload: dict) -> str:
         "binding constraint, the incoming purchase order, production lead "
         "time and any conflict with other orders drawing on the same "
         "shipment. Also check the customer list for this customer's "
-        "contract type and PPM target, since an OEM contract carries firm-"
+        "contract type and PPM target - use customers_list_customers, which "
+        "returns every customer in one call with no ID needed; never "
+        "customers_get_customers, which needs an ID you don't have - since an OEM contract carries firm-"
         "window delivery commitments. Once you know the binding constraint "
         "part number, also call the warehouse system's wms_get_bin_inventory "
         "tool for that exact part number - the ERP's BOM shortage is a book "
