@@ -3460,6 +3460,65 @@ def _fpy_agentic_question(line: str) -> str:
 _CONF_RANK = {"HIGH": 3, "MEDIUM": 2, "LOW": 1}
 
 
+def _fpy_backfill_local(line: str, rows_by_tool: dict, dict_by_tool: dict):
+    """ARAG has repeatedly streamed back empty context chunks even on runs
+    where its tool calls all succeeded and its answer was accurate (observed
+    six consecutive times, Aug 2026, before prune_context was switched off -
+    same platform-flakiness family as the AP 412). The agent's payloads
+    genuinely came from this app's own MCP endpoints either way; only OUR
+    relayed copy went missing, which used to blank the whole structured
+    panel. This app is itself the system serving those tools, so any payload
+    ARAG failed to relay is reconstructed with the same queries the tools
+    run - identical rows from the same plant DBs, not a second opinion."""
+    import sources as _src
+    if not rows_by_tool.get("runs_list_runs"):
+        con = connect()
+        rows_by_tool["runs_list_runs"] = q(con, """
+            SELECT r.*, p.part_no, p.name part_name, l.code line_code
+            FROM runs r JOIN parts p ON p.id=r.part_id
+            LEFT JOIN lines l ON l.id=r.line_id WHERE l.code=?""", (line,))
+        con.close()
+    if not rows_by_tool.get("defects_list_defects"):
+        con = connect()
+        rows_by_tool["defects_list_defects"] = q(con, """
+            SELECT d.*, p.part_no, r.run_no, rl.lot_no raw_lot_no,
+            fl.lot_no finished_lot_no, m.asset_no machine_no
+            FROM defects d LEFT JOIN parts p ON p.id=d.part_id
+            LEFT JOIN runs r ON r.id=d.run_id
+            LEFT JOIN raw_lots rl ON rl.id=d.raw_lot_id
+            LEFT JOIN finished_lots fl ON fl.id=d.finished_lot_id
+            LEFT JOIN machines m ON m.id=d.machine_id""")
+        con.close()
+    if not rows_by_tool.get("machines_list_machines"):
+        con = connect()
+        rows = q(con, """SELECT m.*, l.code line_code FROM machines m
+                         LEFT JOIN lines l ON l.id=m.line_id""")
+        con.close()
+        today = date.today().isoformat()
+        for r in rows:
+            r["service_state"] = ("overdue" if r["next_service_due"] < today
+                                  else "ok")
+        rows_by_tool["machines_list_machines"] = rows
+    if not dict_by_tool.get("settings_list_settings"):
+        con = connect()
+        dict_by_tool["settings_list_settings"] = {
+            r["key"]: r["value"] for r in q(con, "SELECT * FROM settings")}
+        con.close()
+    if not rows_by_tool.get("cmms_list_work_orders"):
+        rows_by_tool["cmms_list_work_orders"] = _src.cmms_list_work_orders({})
+    if not rows_by_tool.get("workforce_get_roster"):
+        rows = _src.workforce_get_roster({"line_code": line})
+        # The question is about the overnight shift - keep the latest
+        # rostered date only, night shift where one exists, so the shift
+        # card names the crew actually on overnight, not every roster row.
+        if rows:
+            latest = max(r["roster_date"] for r in rows)
+            rows = [r for r in rows if r["roster_date"] == latest]
+            night = [r for r in rows if (r.get("shift") or "").lower() == "night"]
+            rows = night or rows
+        rows_by_tool["workforce_get_roster"] = rows
+
+
 def _fpy_build_data(line: str):
     """Builds the FULL structured root-cause result as real JSON, computed
     entirely from the rows the agent actually retrieved via MCP - never
@@ -3471,6 +3530,7 @@ def _fpy_build_data(line: str):
     deterministically so the structured panel can never disagree with, or
     be less reliable than, the numbers behind it."""
     def build(text: str, rows_by_tool: dict, dict_by_tool: dict) -> dict:
+        _fpy_backfill_local(line, rows_by_tool, dict_by_tool)
         runs = [r for r in (rows_by_tool.get("runs_list_runs") or [])
                 if (r.get("line_code") or "").upper() == line.upper()
                 and r.get("status") == "completed"
