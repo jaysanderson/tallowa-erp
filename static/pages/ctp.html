@@ -97,7 +97,7 @@ function ctpTimeline(c){
   const original = c.conflict ? c.conflict.original_po_date : applied;
   const prodStart = new Date(new Date(applied).getTime() + c.receive_buffer_days*86400000)
     .toISOString().slice(0,10);
-  const stops = [
+  let stops = [
     {d: today, top:'Today', bot: dt(today)},
     {d: applied, top:'PO '+c.binding.po.po_no+' arrives'+
       (c.expedite && original!==applied ? ' (pulled in)' : ''), bot: dt(applied)},
@@ -105,6 +105,14 @@ function ctpTimeline(c){
       (c.rate_per_day ? ' @ '+n0(c.rate_per_day)+'/day' : '')},
     {d: c.commit_date, top:'Commit', bot: dt(c.commit_date)},
   ];
+  // Milestones landing on the same day (e.g. an expedited PO pulled in to
+  // today) merge into one labelled stop instead of overprinting each other.
+  stops = stops.reduce((acc, s)=>{
+    const prev = acc[acc.length-1];
+    if (prev && prev.d === s.d){ prev.top += ' · '+s.top; }
+    else acc.push(s);
+    return acc;
+  }, []);
   const t0 = new Date(stops[0].d).getTime(), t1 = new Date(c.commit_date).getTime();
   const span = Math.max(1, t1 - t0), W = 640, PAD = 60;
   const x = d => PAD + (W - 2*PAD) * (new Date(d).getTime() - t0) / span;
