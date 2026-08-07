@@ -143,10 +143,10 @@ function apBatchCard(d){
   let h = '';
   if (curGroup && curGroup.root_cause_group){
     h += '<table style="margin-top:4px"><thead><tr><th>AP #</th><th>Supplier</th>'+
-      '<th>Vendor inv #</th><th class="num">Amount</th></tr></thead><tbody>'+
+      '<th class="num">Amount</th></tr></thead><tbody>'+
       curGroup.similar.map(r=>'<tr><td class="mono">'+esc(r.ap_no)+'</td><td>'+esc(r.supplier_name)+'</td>'+
-        '<td class="mono">'+esc(r.vendor_invoice_no||'')+'</td><td class="num">'+money(r.amount)+'</td></tr>').join('')+
-      '<tr class="apb-total"><td colspan="3">One vendor-master correction clears all '+curGroup.count+'</td>'+
+        '<td class="num">'+money(r.amount)+'</td></tr>').join('')+
+      '<tr class="apb-total"><td colspan="2">One vendor-master correction clears all '+curGroup.count+'</td>'+
       '<td class="num">'+money(curGroup.total_amount)+'</td></tr></tbody></table>';
   }
   return h + apNarr(d);
