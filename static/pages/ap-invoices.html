@@ -1,3 +1,36 @@
+<style>
+/* ---- rich AP failure diagnosis (light card context) ---- */
+.apd-head{display:flex;align-items:stretch;gap:12px;flex-wrap:wrap;margin-bottom:12px}
+.apd-err{border:1.5px solid #B42318;border-radius:9px;padding:9px 14px;min-width:170px}
+.apd-err .code{font-family:ui-monospace,monospace;font-weight:800;font-size:15px;color:#B42318}
+.apd-err .lbl{font-size:11px;color:#B42318;margin-top:1px}
+.apd-facts{display:grid;grid-template-columns:repeat(4,minmax(90px,1fr));gap:0;flex:1;
+  border:1px solid var(--line);border-radius:9px;overflow:hidden}
+.apd-facts>div{padding:8px 12px;border-right:1px solid var(--line)}
+.apd-facts>div:last-child{border-right:0}
+.apd-facts .l{font-size:9px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--muted)}
+.apd-facts .v{font-size:13px;font-weight:600;margin-top:2px}
+.apd-flow{display:flex;align-items:center;gap:0;flex-wrap:wrap;margin:12px 0}
+.apd-node{border:1px solid var(--line);border-radius:8px;padding:7px 12px;background:var(--card);text-align:center}
+.apd-node .t{font-size:9px;font-weight:700;letter-spacing:.07em;text-transform:uppercase;color:var(--muted)}
+.apd-node .b{font-size:12px;font-weight:600;margin-top:1px}
+.apd-node.bad{border-color:#B42318}.apd-node.bad .b{color:#B42318}
+.apd-arrow{padding:0 9px;color:var(--muted);font-size:14px}
+.apd-why{font-size:12.5px;line-height:1.6;margin:10px 0}
+.apd-fix{border:1px solid #1E7B44;border-radius:9px;padding:11px 14px;margin-top:12px;
+  background:rgba(30,123,68,.05)}
+.apd-fix .t{font-size:10px;font-weight:800;letter-spacing:.08em;text-transform:uppercase;color:#1E7B44;margin-bottom:5px}
+.apd-fix .body{font-size:12.5px;line-height:1.6}
+.apd-fix .chips{display:flex;gap:8px;flex-wrap:wrap;margin-top:9px}
+.apd-chip{font-size:10.5px;font-weight:700;border-radius:6px;padding:3px 9px;border:1px solid}
+.apd-chip.pol{border-color:var(--line);color:var(--muted)}
+.apd-chip.ok{border-color:#1E7B44;color:#1E7B44}
+.apd-chip.esc{border-color:#B42318;color:#B42318}
+.apd-narr{margin-top:12px}
+.apd-narr summary{cursor:pointer;font-size:11.5px;color:var(--muted)}
+.apd-nonarr{font-size:11.5px;color:var(--muted);font-style:italic;margin-top:10px}
+.apb-total td{font-weight:700;border-top:2px solid var(--line)}
+</style>
 <div class="card">
   <div id="wf"></div>
 </div>
@@ -63,6 +96,62 @@ async function loadTable(){
 }
 document.getElementById('fstatus').onchange = loadTable;
 
+function apNarr(d){
+  if (d.no_narrative) return '<div class="apd-nonarr">The agent\'s narrative was unavailable this run - every fact above is read directly from the plant\'s own records and the AP policy.</div>';
+  return '<details class="apd-narr"><summary>Agent narrative</summary>'+
+    '<div class="ai-answer" style="margin-top:8px">'+md(d.answer)+'</div></details>'+citesHtml(d.citations);
+}
+
+function apDiagCard(d){
+  const s = d.structured;
+  if (!s) return '<div class="ai-answer">'+md(d.answer)+'</div>'+citesHtml(d.citations);
+  const inv = s.invoice, err = s.error;
+  let h = '<div class="apd-head">'+
+    '<div class="apd-err"><div class="code">'+esc(err.code||'?')+'</div>'+
+      '<div class="lbl">'+esc(err.label||'Posting failure')+'</div></div>'+
+    '<div class="apd-facts">'+
+      '<div><div class="l">Invoice</div><div class="v mono">'+esc(inv.ap_no)+'</div></div>'+
+      '<div><div class="l">Supplier</div><div class="v">'+esc(inv.supplier_name)+'</div></div>'+
+      '<div><div class="l">Amount</div><div class="v">'+money(inv.amount)+'</div></div>'+
+      '<div><div class="l">Status</div><div class="v">'+badge(inv.status)+'</div></div>'+
+    '</div></div>';
+  if (err.root_cause_group === 'vendor_master_cost_center'){
+    h += '<div class="apd-flow">'+
+      '<div class="apd-node"><div class="t">Invoice</div><div class="b mono">'+esc(inv.ap_no)+'</div></div>'+
+      '<span class="apd-arrow">&rarr;</span>'+
+      '<div class="apd-node bad"><div class="t">Vendor master</div><div class="b">'+
+        esc(s.vendor.cost_center||'CC-410')+' &middot; closed</div></div>'+
+      '<span class="apd-arrow">&rarr;</span>'+
+      '<div class="apd-node bad"><div class="t">GL validation</div><div class="b">&#10007; '+esc(err.code)+'</div></div>'+
+      '<span class="apd-arrow">&rarr;</span>'+
+      '<div class="apd-node"><div class="t">Posting</div><div class="b">blocked</div></div>'+
+    '</div>';
+  }
+  h += '<div class="apd-why">'+esc(err.plain_english||'')+'</div>';
+  h += '<div class="apd-fix"><div class="t">The fix</div><div class="body">'+esc(err.fix||'')+'</div>'+
+    '<div class="body" style="margin-top:6px;color:var(--muted)">'+esc(err.authority||'')+'</div>'+
+    '<div class="chips">'+
+    (err.policy_ref ? '<span class="apd-chip pol">Policy '+esc(err.policy_ref)+'</span>' : '')+
+    (s.within_clerk_authority
+      ? '<span class="apd-chip ok">Within AP clerk authority'+(s.clerk_limit?' (limit '+money(s.clerk_limit)+'/invoice)':'')+'</span>'
+      : '<span class="apd-chip esc">Escalation required</span>')+
+    '</div></div>';
+  return h + apNarr(d);
+}
+
+function apBatchCard(d){
+  let h = '';
+  if (curGroup && curGroup.root_cause_group){
+    h += '<table style="margin-top:4px"><thead><tr><th>AP #</th><th>Supplier</th>'+
+      '<th>Vendor inv #</th><th class="num">Amount</th></tr></thead><tbody>'+
+      curGroup.similar.map(r=>'<tr><td class="mono">'+esc(r.ap_no)+'</td><td>'+esc(r.supplier_name)+'</td>'+
+        '<td class="mono">'+esc(r.vendor_invoice_no||'')+'</td><td class="num">'+money(r.amount)+'</td></tr>').join('')+
+      '<tr class="apb-total"><td colspan="3">One vendor-master correction clears all '+curGroup.count+'</td>'+
+      '<td class="num">'+money(curGroup.total_amount)+'</td></tr></tbody></table>';
+  }
+  return h + apNarr(d);
+}
+
 async function explain(){
   const ap_no = document.getElementById('apno').value.trim();
   const out = document.getElementById('apExplainOut');
@@ -76,7 +165,8 @@ async function explain(){
     const d = await runAgentTrace(out, '/api/ai/ap-error-explain',
       {ap_no},
       {title:'Explaining the posting failure',
-       sub:'Reading the invoice record and the AP authorisation policy for '+esc(ap_no)+'.'});
+       sub:'Reading the invoice record and the AP authorisation policy for '+esc(ap_no)+'.',
+       renderAnswer: apDiagCard});
     const ms1 = Math.round(performance.now()-t0);
     if (!d || d.empty) throw new Error('No grounded answer.');
     wf.set('explain', 'done', {
@@ -127,7 +217,8 @@ document.getElementById('apBatchGo').onclick = async ()=>{
   const d = await runAgentTrace(out, '/api/ai/ap-batch-fix',
     {ap_no},
     {title:'Proposing the batch correction',
-     sub:'Checking the vendor master and the AP authorisation policy for a shared fix.'});
+     sub:'Checking the vendor master and the AP authorisation policy for a shared fix.',
+     renderAnswer: apBatchCard});
   const ms = Math.round(performance.now()-t0);
   if (!d || d.empty) return;
   const u = me();

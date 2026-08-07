@@ -3412,6 +3412,19 @@ async def agentic_feature_stream(question: str, bearer: str | None, build_data=N
             yield {"type": "result", "data": data}
         else:
             yield ev
+    if not got_result and build_data:
+        # The agent died mid-run (e.g. the platform's intermittent 412
+        # generative exception) - but the structured panel is computed from
+        # real data, not from the agent's prose, so it can still be shown
+        # honestly. no_narrative tells the UI to say the narrative is
+        # missing rather than pretending the agent finished.
+        try:
+            data = build_data("", rows_by_tool, dict_by_tool)
+            data["no_narrative"] = True
+            got_result = True
+            yield {"type": "result", "data": data}
+        except Exception:
+            pass
     if not got_result:
         yield {"type": "error",
                "message": "The retrieval agent could not answer this."}
@@ -3719,13 +3732,55 @@ def _ap_explain_agentic_question(ap_no: str) -> str:
 
 
 def _ap_explain_build_data(ap_no: str):
+    """Structured diagnosis for the failed invoice, computed from the same
+    rows the agent retrieved - with the vendor-master and policy facts
+    always fetched from this app's own DB (they ARE this app's data; the
+    agent's narrative never was the source of these numbers)."""
     def build(text: str, rows_by_tool: dict, dict_by_tool: dict) -> dict:
         invs = rows_by_tool.get("ap_invoices_list_ap_invoices") or []
         row = next((r for r in invs if r.get("ap_no") == ap_no), None)
-        data_used = ({"ap_no": row.get("ap_no"), "error_code": row.get("error_code"),
-                     "amount": row.get("amount")} if row else {})
+        con = connect()
+        try:
+            if not row:
+                row = q1(con, """SELECT ai.*, s.name supplier_name,
+                                 s.code supplier_code
+                                 FROM ap_invoices ai
+                                 JOIN suppliers s ON s.id=ai.supplier_id
+                                 WHERE ai.ap_no=?""", (ap_no,))
+            sup = q1(con, """SELECT s.* FROM suppliers s
+                             JOIN ap_invoices ai ON ai.supplier_id=s.id
+                             WHERE ai.ap_no=?""", (ap_no,))
+            lim_row = q1(con, "SELECT value FROM settings WHERE "
+                              "key='ap_clerk_approval_limit'")
+        finally:
+            con.close()
+        if not row:
+            return {"answer": text, "citations": [], "data_used": {},
+                    "structured": None, "cached": False}
+        cat = AP_ERROR_CODES.get(row.get("error_code") or "", {})
+        limit = float(lim_row["value"]) if lim_row else None
+        within = (not cat.get("escalate")
+                  and limit is not None and (row.get("amount") or 0) <= limit)
+        structured = {
+            "invoice": {"ap_no": row.get("ap_no"),
+                        "supplier_name": row.get("supplier_name"),
+                        "supplier_code": row.get("supplier_code"),
+                        "vendor_invoice_no": row.get("vendor_invoice_no"),
+                        "amount": row.get("amount"), "status": row.get("status")},
+            "error": {"code": row.get("error_code"), "label": cat.get("label"),
+                      "plain_english": cat.get("plain_english"),
+                      "fix": cat.get("fix"), "authority": cat.get("authority"),
+                      "policy_ref": cat.get("policy_ref"),
+                      "escalate": bool(cat.get("escalate")),
+                      "root_cause_group": cat.get("root_cause_group")},
+            "vendor": {"cost_center": (sup or {}).get("cost_center")},
+            "clerk_limit": limit, "within_clerk_authority": within,
+        }
+        data_used = {"ap_no": row.get("ap_no"),
+                     "error_code": row.get("error_code"),
+                     "amount": row.get("amount")}
         return {"answer": text, "citations": [], "data_used": data_used,
-                "cached": False}
+                "structured": structured, "cached": False}
     return build
 
 
@@ -3867,8 +3922,20 @@ def _ctp_build_data(payload: dict):
                                 expedite=bool(payload.get("expedite")))
             finally:
                 con.close()
+        # The warehouse's own physical bin count for the binding component -
+        # a genuinely separate system of record from the ERP's book stock.
+        # Taken from the agent's own wms_get_bin_inventory call when relayed,
+        # reconstructed with the same query when not.
+        wms_bins = []
+        binding_part = ((r.get("binding") or {}).get("part_no"))
+        if binding_part:
+            wms_bins = [w for w in (rows_by_tool.get("wms_get_bin_inventory")
+                                    or []) if w.get("part_no") == binding_part]
+            if not wms_bins:
+                import sources as _src
+                wms_bins = _src.wms_get_bin_inventory({"part_no": binding_part})
         return {"answer": text, "citations": [], "digest": "", "ctp": r,
-                "cached": False}
+                "wms_bins": wms_bins, "cached": False}
     return build
 
 

@@ -186,10 +186,23 @@ def _erp_refs() -> dict:
                           SELECT started_at AS d FROM runs WHERE started_at IS NOT NULL
                           UNION ALL SELECT found_at FROM defects
                           UNION ALL SELECT placed_at FROM holds)""")
+    # Book on-hand for every BOM component, so the warehouse's physical bin
+    # counts can be seeded to CORROBORATE the ERP's book stock (small cycle-
+    # count-sized variances only) - the CTP flow cross-checks the two as
+    # independent systems of record, which only demos honestly if the
+    # physical counts were seeded from the same reality.
+    component_stock = dbq(con, """
+        SELECT p.part_no,
+               (SELECT COALESCE(SUM(s.qty),0) FROM stock s
+                JOIN locations l ON l.id=s.location_id
+                WHERE s.part_id=p.id AND l.type!='quarantine') AS on_hand
+        FROM parts p
+        WHERE p.id IN (SELECT component_part_id FROM boms)""")
     con.close()
     return {"lines": lines, "machines": machines, "operators": operators,
             "customers": customers, "parts": parts,
             "finished_lots": finished_lots, "raw_lots": raw_lots,
+            "component_stock": component_stock,
             "erp_date_bounds": bounds}
 
 
@@ -300,6 +313,24 @@ def seed() -> None:
                    (f"FG-{i+1:02d}", fl["part_no"], fl["lot_no"],
                     random.choice([20, 45, 80, 120]), "Finished Goods",
                     ts(-random.randint(1, 10))))
+
+    # Component-zone bins whose physical counts track the ERP book stock to
+    # within a cycle-count-sized variance - the CTP flow presents the WMS as
+    # an independent physical system that corroborates (or would expose) the
+    # ERP's book shortage, so these must be grounded in the same quantities.
+    already_binned = {r[0] for r in con.execute(
+        "SELECT DISTINCT part_no FROM wms_bins")}
+    cp = 0
+    for cs in ref.get("component_stock", []):
+        if cs["part_no"] in already_binned or (cs["on_hand"] or 0) <= 0:
+            continue
+        cp += 1
+        variance = random.choice([0, 0, -2, -4, 3, -6])
+        con.execute("""INSERT INTO wms_bins (bin_code, part_no, lot_no, qty, zone,
+                      updated_at) VALUES (?,?,?,?,?,?)""",
+                   (f"CP-{cp:02d}", cs["part_no"], None,
+                    max(0, round(cs["on_hand"] + variance, 1)), "Components",
+                    ts(-random.randint(0, 5))))
 
     for i, p in enumerate(random.sample(parts, min(10, len(parts)))):
         sysq = random.choice([50, 120, 300, 600])
