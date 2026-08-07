@@ -32,6 +32,40 @@
 .rc-manual:hover{text-decoration:underline}
 .rc-graph{margin-top:20px;border:1px solid var(--line);border-radius:9px;padding:14px;background:var(--card)}
 .ai-panel .rc-graph{background:rgba(255,255,255,.03);border-color:rgba(255,255,255,.12)}
+
+/* ---- formal 8D report document ---- */
+.d8r{border:1px solid var(--line);border-radius:10px;background:var(--card);overflow:hidden;
+  box-shadow:0 1px 3px rgba(0,0,0,.06)}
+.d8r-mast{padding:16px 20px 13px;border-bottom:2px solid #26262B}
+.d8r-org{font-size:9.5px;font-weight:700;letter-spacing:.16em;text-transform:uppercase;color:var(--muted)}
+.d8r-title{display:flex;align-items:baseline;gap:10px;margin-top:2px;flex-wrap:wrap}
+.d8r-title b{font-size:18px;letter-spacing:-.01em}
+.d8r-stamp{font-size:9px;font-weight:800;letter-spacing:.12em;padding:2.5px 9px;border-radius:4px;
+  border:1.5px solid var(--orange);color:var(--orange);transform:rotate(-1.2deg)}
+.d8r-stamp.ok{border-color:#1E7B44;color:#1E7B44}
+.d8r-ref{margin-left:auto;font-size:11px;color:var(--muted)}
+.d8r-meta{display:grid;grid-template-columns:repeat(4,1fr);border-bottom:1px solid var(--line)}
+.d8r-meta>div{padding:9px 14px 8px;border-right:1px solid var(--line);border-top:1px solid var(--line)}
+.d8r-meta>div:nth-child(4n){border-right:0}
+.d8r-meta>div:nth-child(-n+4){border-top:0}
+.d8r-meta .l{font-size:9px;font-weight:700;letter-spacing:.09em;text-transform:uppercase;color:var(--muted)}
+.d8r-meta .v{font-size:13px;font-weight:600;margin-top:2px}
+.d8r-meta .v.bad{color:#B42318}
+.d8r-sec{display:flex;gap:14px;padding:14px 20px;border-bottom:1px solid var(--line)}
+.d8r-sec:last-of-type{border-bottom:0}
+.d8r-chip{flex:0 0 auto;width:46px;height:34px;border:1.5px solid #26262B;border-radius:7px;
+  display:flex;align-items:center;justify-content:center;font-weight:800;font-size:13px;
+  font-family:var(--mono,ui-monospace,monospace)}
+.d8r-body{min-width:0}
+.d8r-body h5{margin:0 0 4px;font-size:12px;font-weight:700;letter-spacing:.05em;text-transform:uppercase}
+.d8r-body .ai-answer{font-size:12.5px}
+.d8r-body .ai-answer p{margin:0 0 6px}
+.d8r-sign{display:grid;grid-template-columns:1fr 1fr;gap:20px;padding:14px 20px 16px;
+  background:rgba(0,0,0,.025);border-top:1px solid var(--line)}
+.d8r-sign .l{font-size:9px;font-weight:700;letter-spacing:.09em;text-transform:uppercase;color:var(--muted)}
+.d8r-sign .v{font-size:12.5px;margin-top:3px;padding-bottom:5px;border-bottom:1px solid #26262B;
+  min-height:22px}
+.d8r-sign .v i{color:var(--muted)}
 </style>
 <h2 class="sect" style="margin-top:0">Overnight FPY alert - Line A-2</h2>
 <div class="card">
@@ -289,6 +323,118 @@ wf.set('rank', 'current');
   document.getElementById('draftCard').innerHTML = '<div class="hint">Available once the lot is contained.</div>';
 })();
 
+/* ---- formal 8D report document (screen + print) ----
+   The draft text stays the single source of truth (it's what Edit edits
+   and what gets filed on approval); the document chrome around it - the
+   masthead, stamp, metadata grid and signature block - is drawn from the
+   SAME structured evidence the suspects panel used, never from prose. */
+const D8_SECTIONS = [
+  {key:'problem',    d:'D2',    title:'Problem description', aliases:['problem','d2']},
+  {key:'containment',d:'D3',    title:'Containment',         aliases:['containment','d3']},
+  {key:'root_cause', d:'D4',    title:'Root cause',          aliases:['root cause','d4']},
+  {key:'corrective', d:'D5-D7', title:'Corrective and preventive action',
+   aliases:['corrective action','d5','prevention','d7']},
+];
+function d8Split(text){
+  const out = {}; let cur = null;
+  for (const line of (text||'').split('\n')){
+    const s = line.trim().toLowerCase().replace(/^#+\s*/,'');
+    const hit = D8_SECTIONS.find(sec=>sec.aliases.some(a=>s.startsWith(a)));
+    if (hit){ cur = hit.key; continue; }
+    if (cur && line.trim()) out[cur] = ((out[cur]||'')+'\n'+line).trim();
+  }
+  return out;
+}
+let d8State = {approved:null};
+function d8Meta(s){
+  const run = (s&&s.run)||{};
+  const holdM = /HLD-\d+/.exec(d8State.text||'');
+  return [
+    ['Line', run.line_code||'A-2'], ['Run', run.run_no||'-'],
+    ['FPY', run.fpy_pct!=null ? run.fpy_pct+'%' : '-', run.fpy_pct!=null && run.fpy_target_pct!=null && run.fpy_pct<run.fpy_target_pct],
+    ['Target', run.fpy_target_pct!=null ? run.fpy_target_pct+'%' : '-'],
+    ['Affected units', s&&s.total_affected_units!=null ? n0(s.total_affected_units) : '-'],
+    ['Quality hold', holdM ? holdM[0] : '-'],
+    ['Procedure', 'QP-8D'],
+    ['Date', new Date().toISOString().slice(0,10)],
+  ];
+}
+function d8ReportHtml(text, structured){
+  d8State.text = text;
+  const secs = d8Split(text);
+  if (!D8_SECTIONS.some(sec=>secs[sec.key]))
+    return '<div class="ai-answer">'+md(text)+'</div>';
+  const ap = d8State.approved;
+  return '<div class="d8r" id="d8doc">'+
+    '<div class="d8r-mast"><div class="d8r-org">Tallowa Components · Bellbrook Plant · Quality</div>'+
+    '<div class="d8r-title"><b>8D Containment Report</b>'+
+    (ap ? '<span class="d8r-stamp ok">APPROVED</span>' : '<span class="d8r-stamp">DRAFT</span>')+
+    '<span class="d8r-ref mono">'+(ap ? esc(ap) : 'unfiled')+'</span></div></div>'+
+    '<div class="d8r-meta">'+d8Meta(structured).map(([l,v,bad])=>
+      '<div><div class="l">'+esc(l)+'</div><div class="v'+(bad?' bad':'')+'">'+esc(String(v))+'</div></div>').join('')+'</div>'+
+    D8_SECTIONS.map(sec=> secs[sec.key] ?
+      '<div class="d8r-sec"><div class="d8r-chip">'+esc(sec.d)+'</div>'+
+      '<div class="d8r-body"><h5>'+esc(sec.title)+'</h5>'+
+      '<div class="ai-answer">'+md(secs[sec.key])+'</div></div></div>' : '').join('')+
+    '<div class="d8r-sign">'+
+    '<div><div class="l">Prepared by</div><div class="v">Retrieval agent - evidence-cited draft</div></div>'+
+    '<div><div class="l">Approved by (quality inspector)</div><div class="v">'+
+    (ap ? esc((me()||{}).name||'Quality inspector') : '<i>pending approval</i>')+'</div></div>'+
+    '</div></div>';
+}
+function d8Print(structured){
+  const secs = d8Split(d8State.text||'');
+  const ap = d8State.approved;
+  const defRows = ((structured&&structured.defects)||[]).map(d=>
+    '<tr><td>'+esc(d.defect_no)+'</td><td>'+esc(d.code||'')+'</td>'+
+    '<td style="text-align:right">'+n0(d.units_affected)+'</td><td>'+esc(d.severity||'')+'</td></tr>').join('');
+  const w = window.open('', '_blank');
+  w.document.write('<!doctype html><html><head><title>8D Containment Report - '+
+    esc(((structured||{}).run||{}).run_no||'')+'</title><style>'+
+    'body{font:13px/1.55 Georgia,"Times New Roman",serif;color:#111;margin:40px auto;max-width:720px;padding:0 24px}'+
+    '.org{font:700 10px/1 Helvetica,Arial,sans-serif;letter-spacing:.18em;text-transform:uppercase;color:#555}'+
+    'h1{font-size:24px;margin:4px 0 2px;letter-spacing:-.01em}'+
+    '.stamp{display:inline-block;font:800 10px/1 Helvetica,Arial,sans-serif;letter-spacing:.12em;'+
+    'border:2px solid '+(ap?'#1E7B44':'#B45309')+';color:'+(ap?'#1E7B44':'#B45309')+';padding:4px 10px;border-radius:4px;margin-left:8px;vertical-align:middle}'+
+    '.mast{border-bottom:3px solid #111;padding-bottom:12px}'+
+    'table.meta{width:100%;border-collapse:collapse;margin:16px 0 4px}'+
+    'table.meta td{border:1px solid #bbb;padding:6px 10px;font-size:12px}'+
+    'table.meta .l{font:700 9px/1.2 Helvetica,Arial,sans-serif;letter-spacing:.09em;text-transform:uppercase;color:#666}'+
+    '.sec{display:flex;gap:16px;margin:18px 0;page-break-inside:avoid}'+
+    '.chip{flex:0 0 auto;width:52px;height:36px;border:2px solid #111;border-radius:6px;display:flex;'+
+    'align-items:center;justify-content:center;font:800 13px Helvetica,Arial,sans-serif}'+
+    '.sec h3{margin:0 0 4px;font:700 12px/1.3 Helvetica,Arial,sans-serif;letter-spacing:.06em;text-transform:uppercase}'+
+    '.sec p{margin:0 0 6px}'+
+    'table.defs{width:100%;border-collapse:collapse;margin-top:8px;font-size:12px}'+
+    'table.defs th,table.defs td{border:1px solid #bbb;padding:5px 9px;text-align:left}'+
+    'table.defs th{font:700 9.5px/1.2 Helvetica,Arial,sans-serif;letter-spacing:.08em;text-transform:uppercase;background:#f2f2f2}'+
+    '.sign{display:flex;gap:40px;margin-top:36px;page-break-inside:avoid}'+
+    '.sign div{flex:1}.sign .l{font:700 9px/1.2 Helvetica,Arial,sans-serif;letter-spacing:.09em;text-transform:uppercase;color:#666}'+
+    '.sign .v{border-bottom:1.5px solid #111;padding:14px 0 4px;font-size:12.5px}'+
+    '@media print{body{margin:0 auto}}'+
+    '</style></head><body>'+
+    '<div class="mast"><div class="org">Tallowa Components · Bellbrook Plant · Quality</div>'+
+    '<h1>8D Containment Report<span class="stamp">'+(ap?'APPROVED':'DRAFT')+'</span></h1>'+
+    '<div style="font-size:12px;color:#555">'+(ap?'Report '+esc(ap):'Unfiled draft')+' · per procedure QP-8D</div></div>'+
+    '<table class="meta"><tr>'+d8Meta(structured).slice(0,4).map(([l,v])=>
+      '<td><div class="l">'+esc(l)+'</div>'+esc(String(v))+'</td>').join('')+'</tr><tr>'+
+      d8Meta(structured).slice(4).map(([l,v])=>
+      '<td><div class="l">'+esc(l)+'</div>'+esc(String(v))+'</td>').join('')+'</tr></table>'+
+    D8_SECTIONS.map(sec=> secs[sec.key] ?
+      '<div class="sec"><div class="chip">'+esc(sec.d)+'</div><div><h3>'+esec(sec.title)+'</h3>'+
+      md(secs[sec.key])+'</div></div>' : '').join('')+
+    (defRows ? '<div class="sec"><div class="chip">A</div><div><h3>Appendix A - Defect evidence</h3>'+
+      '<table class="defs"><tr><th>Defect</th><th>Code</th><th>Units</th><th>Severity</th></tr>'+
+      defRows+'</table></div></div>' : '')+
+    '<div class="sign"><div><div class="l">Prepared by</div><div class="v">Retrieval agent - evidence-cited draft</div></div>'+
+    '<div><div class="l">Approved by (quality inspector)</div><div class="v">'+
+    (ap ? esc((me()||{}).name||'') : '')+'</div></div></div>'+
+    '</body></html>');
+  w.document.close();
+  w.onload = ()=>w.print();
+}
+function esec(s){ return esc(s); }
+
 async function loadDraft(){
   const card = document.getElementById('draftCard');
   card.innerHTML =
@@ -304,13 +450,16 @@ async function loadDraft(){
        sub:'Pulling the root-cause evidence, live containment status and the QP-8D procedure.',
        renderAnswer: dd=>
          '<div id="d8draft"></div>'+citesHtml(dd.citations)+
-         '<div class="row" style="margin-top:8px"><button class="btn" id="d8approve">Approve as shown above</button></div>'+
+         '<div class="row" style="margin-top:8px"><button class="btn" id="d8approve">Approve as shown above</button>'+
+         '<button class="btn ghost" id="d8print">Print</button></div>'+
          '<div id="d8out" style="margin-top:8px"></div>'});
     const ms = Math.round(performance.now()-t0);
     btn.disabled = false;
     if (!d || d.empty) return;
     d8Fields = d.fields;
-    const d8editor = draftPreview('d8draft', d.answer);
+    d8State = {approved:null, text:d.answer};
+    const d8editor = draftPreview('d8draft', d.answer, t=>d8ReportHtml(t, d.structured));
+    document.getElementById('d8print').onclick = ()=>d8Print(d.structured);
     wf.set('draft', 'done', {
       detail: '8D drafted from the containment record and defect evidence - ready for review.',
       trace: wfTrace('containment status, defect evidence, 8D procedure', ms),
@@ -324,6 +473,8 @@ async function loadDraft(){
       const ms2 = Math.round(performance.now()-t1);
       document.getElementById('d8out').innerHTML =
         '<div class="grounding">Report <b>'+r.report_no+'</b> approved - filed, three hours before the OEM deadline.</div>';
+      d8State.approved = r.report_no;
+      d8editor.rerender();
       wf.set('approve', 'done', {
         detail: 'Report '+r.report_no+' approved and filed - three hours before the OEM deadline.',
         trace: wfTrace('quality sign-off recorded', ms2),

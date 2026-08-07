@@ -191,7 +191,7 @@ function md(t){
    textarea; "Done editing" re-renders the preview from the edited text.
    Returns {getText, setText} so the caller's approve action always reads
    the current source regardless of whether the user ever opened the editor. */
-function draftPreview(el, initialText){
+function draftPreview(el, initialText, renderFn){
   if (typeof el === 'string') el = document.getElementById(el);
   let text = initialText, editing = false;
   const id = 'dp' + Math.random().toString(36).slice(2, 8);
@@ -206,7 +206,7 @@ function draftPreview(el, initialText){
       };
     } else {
       el.innerHTML =
-        '<div class="ai-answer">'+md(text)+'</div>'+
+        (renderFn ? renderFn(text) : '<div class="ai-answer">'+md(text)+'</div>')+
         '<div class="row" style="margin-top:6px"><button class="btn ghost" id="'+id+'edit">Edit</button></div>';
       document.getElementById(id+'edit').onclick = ()=>{ editing = true; render(); };
     }
@@ -215,6 +215,7 @@ function draftPreview(el, initialText){
   return {
     getText: ()=>text,
     setText: t=>{ text = t; editing = false; render(); },
+    rerender: ()=>{ editing = false; render(); },
   };
 }
 
