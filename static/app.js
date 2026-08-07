@@ -777,6 +777,10 @@ function runAgentTrace(el, endpoint, body, opts){
 
   return new Promise(resolve=>{
     function finish(data){
+      // Re-entry guard: an error event schedules finish(null) on a delay,
+      // and a fallback result can land in between - without this, the
+      // delayed null-finish overwrites the already-rendered answer.
+      if (finished) return;
       finished = true;
       clearInterval(ticker);
       const traceHtml = m.trace.innerHTML;

@@ -3392,12 +3392,20 @@ async def agentic_feature_stream(question: str, bearer: str | None, build_data=N
         return resolved
 
     got_result = False
+    pending_errors: list[dict] = []
     async for ev in arag_agent_events(question, bearer, on_context=on_context):
         for resolved_ev in _flush_held():
             yield resolved_ev
         if (ev.get("type") == "tool_result" and not ev.get("ok")
                 and ev.get("tool") in _NO_ARG_CAPABILITY_TOOLS):
             held.append(ev)
+            continue
+        if ev.get("type") == "error":
+            # Held back, not dropped: if the data-only fallback below can
+            # still produce a real result, surfacing a scary terminal error
+            # first would be false (the data DID arrive); if it can't, these
+            # are yielded exactly as they happened.
+            pending_errors.append(ev)
             continue
         if ev.get("type") == "answer":
             for hv in held:
@@ -3426,6 +3434,8 @@ async def agentic_feature_stream(question: str, bearer: str | None, build_data=N
         except Exception:
             pass
     if not got_result:
+        for pe in pending_errors:
+            yield pe
         yield {"type": "error",
                "message": "The retrieval agent could not answer this."}
     yield {"type": "done"}
