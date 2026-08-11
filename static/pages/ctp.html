@@ -94,7 +94,11 @@ function ctpVerdict(c){
 
 function ctpTimeline(c){
   if (!c.binding || !c.binding.po) return '';
-  const today = new Date().toISOString().slice(0,10);
+  // Local calendar date, not UTC - the plant runs ahead of UTC, so
+  // toISOString() alone would label "Today" with yesterday's date.
+  const now = new Date();
+  const today = new Date(now.getTime() - now.getTimezoneOffset()*60000)
+    .toISOString().slice(0,10);
   const applied = c.conflict ? c.conflict.applied_po_date : c.binding.po.expected_date;
   const original = c.conflict ? c.conflict.original_po_date : applied;
   const prodStart = new Date(new Date(applied).getTime() + c.receive_buffer_days*86400000)
@@ -108,11 +112,26 @@ function ctpTimeline(c){
       (c.rate_per_day ? ' @ '+n0(c.rate_per_day)+'/day' : '')},
     {d: c.commit_date, top:'Commit', bot: dt(c.commit_date)},
   ];
+  // Milestones already behind us (a PO whose applied date has passed) fold
+  // onto "Today" - otherwise they render off-scale left of the axis.
+  stops.forEach(s => {
+    if (s.d < today){
+      s.d = today;
+      s.top = s.top.replace(' arrives', ' arrived');
+      const w = s.bot.indexOf('was ');
+      s.bot = w >= 0 ? s.bot.slice(w) : '';
+    }
+  });
   // Milestones landing on the same day (e.g. an expedited PO pulled in to
   // today) merge into one labelled stop instead of overprinting each other.
+  // Sort first: same-day stops must be adjacent for the merge to see them.
+  stops.sort((a,b)=> a.d < b.d ? -1 : a.d > b.d ? 1 : 0);
   stops = stops.reduce((acc, s)=>{
     const prev = acc[acc.length-1];
-    if (prev && prev.d === s.d){ prev.top += ' · '+s.top; prev.bot = s.bot || prev.bot; }
+    if (prev && prev.d === s.d){
+      prev.top += ' · '+s.top;
+      prev.bot = [prev.bot, s.bot].filter(Boolean).join(' · ');
+    }
     else acc.push(s);
     return acc;
   }, []);
@@ -123,8 +142,9 @@ function ctpTimeline(c){
   // screens instead of scaling up with the panel.
   let svg = '<svg viewBox="0 0 '+W+' 62" style="width:100%;max-width:700px;height:auto;display:block;margin:0 auto">';
   svg += '<line x1="'+PAD+'" y1="46" x2="'+(W-PAD)+'" y2="46" stroke="rgba(255,255,255,.25)" stroke-width="2"/>';
-  // production span drawn as a thicker orange segment
-  svg += '<line x1="'+x(prodStart)+'" y1="46" x2="'+x(c.commit_date)+'" y2="46" stroke="#FF8B4A" stroke-width="4" stroke-linecap="round" opacity=".8"/>';
+  // production span drawn as a thicker orange segment (clamped to the axis
+  // start when production kicked off before today)
+  svg += '<line x1="'+x(prodStart < today ? today : prodStart)+'" y1="46" x2="'+x(c.commit_date)+'" y2="46" stroke="#FF8B4A" stroke-width="4" stroke-linecap="round" opacity=".8"/>';
   stops.forEach((s,i)=>{
     const cx = x(s.d), last = i === stops.length-1;
     // Edge stops anchor inward so long (possibly merged) labels never
