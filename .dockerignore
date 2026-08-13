@@ -1,0 +1,16 @@
+# The SQLite stores must NOT ship in the image: the app seeds them on first
+# boot (app.py / sources.py), which keeps every seeded date relative to NOW.
+# Shipping a snapshot freezes the plant calendar and lets CTP/PO dates drift
+# into the past as real time passes.
+data/erp.db
+data/sources.db
+
+# build/dev artefacts irrelevant to the runtime image
+.git
+__pycache__
+*.pyc
+shots
+dop-evidence
+*.pptx
+*.docx
+~$*

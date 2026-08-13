@@ -413,7 +413,11 @@ async function approvePending(id, btn){
     await simulateSelect('cpart', 'TC-70210', {delay:450});
     await simulateSelect('ccust', 'MAR', {delay:200});
     await simulateType('cqty', '250', {delay:200});
-    await simulateType('cdate', '2026-08-01', {delay:200});
+    // Nine days out: with fresh-seeded data the base plan misses this by a
+    // few days and the expedite what-if pulls the commit back inside it -
+    // a hardcoded date would drift into the past as the calendar moves.
+    const reqDate = new Date(Date.now() + 9*86400000).toISOString().slice(0,10);
+    await simulateType('cdate', reqDate, {delay:200});
   }
 })();
 </script>
