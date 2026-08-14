@@ -145,15 +145,34 @@ function ctpTimeline(c){
   // production span drawn as a thicker orange segment (clamped to the axis
   // start when production kicked off before today)
   svg += '<line x1="'+x(prodStart < today ? today : prodStart)+'" y1="46" x2="'+x(c.commit_date)+'" y2="46" stroke="#FF8B4A" stroke-width="4" stroke-linecap="round" opacity=".8"/>';
-  stops.forEach((s,i)=>{
-    const cx = x(s.d), last = i === stops.length-1;
-    // Edge stops anchor inward so long (possibly merged) labels never
-    // run off the viewBox and clip.
-    const anchor = i===0 ? 'start' : (last ? 'end' : 'middle');
-    const tx = i===0 ? Math.max(6, cx-8) : (last ? Math.min(W-6, cx+8) : cx);
-    svg += '<circle cx="'+cx+'" cy="46" r="5" fill="'+(last?'#FF8B4A':'#26262B')+'" stroke="'+(last?'#FF8B4A':'#9C9CA3')+'" stroke-width="1.5"/>';
-    svg += '<text x="'+tx+'" y="'+(i%2 ? 24 : 12)+'" text-anchor="'+anchor+'" font-size="9.5" font-weight="700" fill="#ECECEF">'+esc(s.top)+'</text>';
-    svg += '<text x="'+tx+'" y="'+(i%2 ? 34 : 22)+'" text-anchor="'+anchor+'" font-size="8.5" fill="#9C9CA3">'+esc(s.bot)+'</text>';
+  // Stops on different days can still sit a handful of pixels apart when
+  // they cluster near the commit (PO lands, production starts, commit -
+  // three consecutive days). Every dot draws at its true date, but stops
+  // closer than ~58px share one combined label block so text never
+  // overprints text.
+  const clusters = [];
+  stops.forEach(s => {
+    const cx = x(s.d);
+    const cl = clusters[clusters.length-1];
+    if (cl && cx - cl.xs[cl.xs.length-1] < 58){ cl.stops.push(s); cl.xs.push(cx); }
+    else clusters.push({stops:[s], xs:[cx]});
+  });
+  let drawn = 0;
+  clusters.forEach((cl, ci)=>{
+    const firstCl = ci === 0, lastCl = ci === clusters.length-1;
+    cl.stops.forEach((s, j)=>{
+      const isLast = (drawn + j) === stops.length-1;
+      svg += '<circle cx="'+cl.xs[j]+'" cy="46" r="5" fill="'+(isLast?'#FF8B4A':'#26262B')+'" stroke="'+(isLast?'#FF8B4A':'#9C9CA3')+'" stroke-width="1.5"/>';
+    });
+    drawn += cl.stops.length;
+    // Edge clusters anchor inward so long labels never clip the viewBox.
+    const anchor = firstCl ? 'start' : (lastCl ? 'end' : 'middle');
+    const ax = firstCl ? Math.max(6, cl.xs[0]-8)
+             : (lastCl ? Math.min(W-6, cl.xs[cl.xs.length-1]+8) : cl.xs[0]);
+    const top = cl.stops.map(s=>s.top).join(' · ');
+    const bot = cl.stops.map(s=>s.bot).filter(Boolean).join(' · ');
+    svg += '<text x="'+ax+'" y="'+(ci%2 ? 24 : 12)+'" text-anchor="'+anchor+'" font-size="9.5" font-weight="700" fill="#ECECEF">'+esc(top)+'</text>';
+    svg += '<text x="'+ax+'" y="'+(ci%2 ? 34 : 22)+'" text-anchor="'+anchor+'" font-size="8.5" fill="#9C9CA3">'+esc(bot)+'</text>';
   });
   svg += '</svg>';
   return '<div class="ct-sec">Supply plan to commit</div><div class="ct-panel">'+svg+'</div>';
