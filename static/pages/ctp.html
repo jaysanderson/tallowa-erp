@@ -148,13 +148,14 @@ function ctpTimeline(c){
   // Stops on different days can still sit a handful of pixels apart when
   // they cluster near the commit (PO lands, production starts, commit -
   // three consecutive days). Every dot draws at its true date, but stops
-  // closer than ~58px share one combined label block so text never
-  // overprints text.
+  // closer than 75px share one combined label block. 75 also guarantees
+  // the two label ROWS work: alternating rows means same-row neighbours
+  // are two cluster-gaps (>=150px) apart, enough for the widest label.
   const clusters = [];
   stops.forEach(s => {
     const cx = x(s.d);
     const cl = clusters[clusters.length-1];
-    if (cl && cx - cl.xs[cl.xs.length-1] < 58){ cl.stops.push(s); cl.xs.push(cx); }
+    if (cl && cx - cl.xs[cl.xs.length-1] < 75){ cl.stops.push(s); cl.xs.push(cx); }
     else clusters.push({stops:[s], xs:[cx]});
   });
   let drawn = 0;
