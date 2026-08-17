@@ -15,14 +15,47 @@
   --ok:#2E7D4F; --warn:#B26A00; --bad:#B3352B; --chip:#F0EEEC;
   --accent-dim:rgba(168,85,247,.08); --font-sans:'Inter',system-ui,-apple-system,sans-serif;
   --font-mono:'JetBrains Mono',ui-monospace,Menlo,monospace;
+  /* Progress Agentic RAG brand band (progress-arag-branding skill) - published
+     as a var so the sidebar/header below can dock under it instead of a
+     hardcoded offset drifting out of sync at the mobile breakpoint. */
+  --arag-band-h:120px;
 }
+@media(max-width:640px){:root{--arag-band-h:60px}}
 *{box-sizing:border-box;margin:0;padding:0}
+html{scroll-padding-top:var(--arag-band-h)}
 body{font-family:var(--font-sans);
-  background:var(--paper);color:var(--ink);font-size:14px;display:flex;min-height:100vh}
+  background:var(--paper);color:var(--ink);font-size:14px;display:flex;flex-direction:column;min-height:100vh}
 a{color:inherit;text-decoration:none}
+/* ---- Progress Agentic RAG band - always-present top layer, every route
+   (shell.html is the single template every page renders through). Built to
+   the progress-arag-branding skill: real bundled lockup, Blue P1 background,
+   white wordmark, 75px+ minimum logo height at desktop, stepping to 56px
+   at the mobile breakpoint (documented trade-off, same pattern already
+   shipped on bellcastle-compliance-desk's ProgressHeader). This is the one
+   deliberate, always-on ARAG-branded surface on the page - the app chrome
+   below it stays Tallowa's own system, per gate 2. ---- */
+.arag-band{background:#00216B;display:flex;align-items:center;justify-content:center;
+  gap:12px;padding:22px 16px;position:sticky;top:0;z-index:30;flex-shrink:0}
+.arag-band__logo{display:block;line-height:0}
+.arag-band__logo img{height:76px;width:auto;max-width:100%;display:block}
+.arag-band__eyebrow{font-family:'Progress Sans Text',Arial,sans-serif;font-size:11px;
+  font-weight:500;letter-spacing:.14em;text-transform:uppercase;color:rgba(255,255,255,.72)}
+@media(max-width:640px){
+  .arag-band{padding:10px 14px}
+  /* The horizontal lockup is ~8.6:1 - at a real phone width (390px, iPhone-class)
+     56px height alone (bellcastle's precedent) still overflows the viewport,
+     since 56px tall renders ~480px wide. 40px is the largest height that stays
+     inside a 375-390px viewport with padding; max-width:100% above is the
+     belt-and-suspenders in case an even narrower device is used. Documented
+     trade-off against the 75px brand minimum, same spirit as the desktop step. */
+  .arag-band__logo img{height:40px}
+  .arag-band__eyebrow{display:none}
+}
+.shell-body{display:flex;flex:1;min-height:0}
 /* sidebar */
 aside{width:212px;background:var(--navy);color:#bbb;flex-shrink:0;
-  display:flex;flex-direction:column;position:sticky;top:0;height:100vh;overflow-y:auto}
+  display:flex;flex-direction:column;position:sticky;top:var(--arag-band-h);
+  height:calc(100vh - var(--arag-band-h));overflow-y:auto}
 .brand{display:flex;align-items:center;gap:9px;padding:18px 16px 14px;color:#fff}
 .brand svg{flex-shrink:0}
 .brand b{font-size:15px;letter-spacing:.06em}
@@ -39,7 +72,8 @@ nav a .ai{font-size:8.5px;background:var(--orange);color:#fff;border-radius:3px;
 /* main */
 main{flex:1;min-width:0;display:flex;flex-direction:column}
 header{background:var(--navy);border-bottom:1px solid #262626;padding:0 26px;
-  height:56px;display:flex;align-items:center;gap:14px;position:sticky;top:0;z-index:5}
+  height:56px;display:flex;align-items:center;gap:14px;position:sticky;
+  top:var(--arag-band-h);z-index:5;box-shadow:0 1px 0 rgba(0,0,0,.4)}
 header h1{font-size:19px;font-weight:700;letter-spacing:-.01em;color:#fff}
 header .sp{flex:1}
 header .who{font-size:12px;color:#9C9CA3;text-align:right;line-height:1.3}
@@ -71,12 +105,13 @@ header .who b{color:#fff}
 footer{padding:10px 26px;font-size:10.5px;color:#9AA3AB;border-top:1px solid var(--line)}
 /* cards, kpis, tables */
 .kpis{display:grid;grid-template-columns:repeat(auto-fill,minmax(158px,1fr));gap:12px;margin-bottom:18px}
-.kpi{background:var(--card);border:1px solid var(--line);border-radius:10px;padding:12px 14px}
+.kpi{background:var(--card);border:1px solid var(--line);border-radius:10px;padding:12px 14px;
+  box-shadow:0 1px 2px rgba(17,17,17,.05),0 1px 0 rgba(255,255,255,.6) inset}
 .kpi .v{font-size:22px;font-weight:650;margin-top:3px;font-variant-numeric:tabular-nums}
 .kpi .l{font-size:10px;color:var(--muted);letter-spacing:.07em;text-transform:uppercase;font-weight:600}
 .kpi.warn .v{color:var(--warn)} .kpi.bad .v{color:var(--bad)} .kpi.ok .v{color:var(--ok)}
 .card{background:var(--card);border:1px solid var(--line);border-radius:10px;
-  padding:16px 18px;margin-bottom:16px}
+  padding:16px 18px;margin-bottom:16px;box-shadow:0 1px 3px rgba(17,17,17,.05)}
 .card h3{font-size:13.5px;margin-bottom:10px;display:flex;align-items:center;gap:8px;
   flex-wrap:wrap;row-gap:8px}
 .card h3 .sp{flex:1;min-width:12px}
@@ -115,7 +150,8 @@ textarea{resize:vertical;min-height:70px}
    variant of the light card style. */
 .ai-panel{border:1px solid #262626;border-left:3px solid var(--orange);
   border-radius:12px;background:linear-gradient(165deg,#1a1a1a,#0f0f0f);
-  color:#EDEBF0;padding:16px 20px;margin-bottom:16px}
+  color:#EDEBF0;padding:16px 20px;margin-bottom:16px;
+  box-shadow:0 10px 30px rgba(0,0,0,.22)}
 .ai-panel h3{font-size:13.5px;display:flex;gap:8px;align-items:center;margin-bottom:8px;
   color:#fff;font-weight:600}
 .ai-tag{font-size:9px;background:var(--orange);color:#fff;border-radius:3px;
@@ -200,6 +236,13 @@ tr.new-row td{animation:newrow 2.4s ease}
 </style>
 </head>
 <body data-page="{{PAGE}}">
+<div class="arag-band" role="banner" aria-label="Progress Agentic RAG">
+  <a class="arag-band__logo" href="https://www.progress.com/agentic-rag" target="_blank" rel="noreferrer" aria-label="Progress Agentic RAG">
+    <img src="/static/brand/progress-arag-logo-alternate.svg" alt="Progress Agentic RAG" height="76">
+  </a>
+  <span class="arag-band__eyebrow">Agentic RAG Demo</span>
+</div>
+<div class="shell-body">
 <aside>
   <a class="brand" href="/">
     <svg width="30" height="30" viewBox="0 0 30 30"><rect width="30" height="30" rx="6" fill="#A855F7"/><path d="M7 19 L15 8 L23 19 H17.5 L15 15.2 L12.5 19 Z" fill="#fff"/><rect x="7" y="21" width="16" height="2.4" rx="1.2" fill="#fff" opacity=".85"/></svg>
@@ -262,6 +305,7 @@ tr.new-row td{animation:newrow 2.4s ease}
   </div>
   <footer>Demonstration environment - all companies, people, parts, lots and figures are synthetic.</footer>
 </main>
+</div>
 <div class="modal-bg" id="modalbg"><div class="modal" id="modal"></div></div>
 </body>
 </html>

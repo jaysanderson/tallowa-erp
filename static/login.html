@@ -11,8 +11,24 @@
 <style>
 *{box-sizing:border-box;margin:0;padding:0}
 body{font-family:'Inter',system-ui,-apple-system,sans-serif;
-  background:#141414;min-height:100vh;display:flex;align-items:center;
-  justify-content:center;color:#111;padding:20px}
+  background:#141414;min-height:100vh;display:flex;flex-direction:column;
+  color:#111}
+/* Progress Agentic RAG band - see static/shell.html for the full rationale;
+   duplicated here because login.html is its own standalone template, not
+   rendered through the shared shell. Same brand asset, same rules. */
+.arag-band{background:#00216B;display:flex;align-items:center;justify-content:center;
+  gap:12px;padding:22px 16px;flex-shrink:0}
+.arag-band__logo{display:block;line-height:0}
+.arag-band__logo img{height:76px;width:auto;max-width:100%;display:block}
+.arag-band__eyebrow{font-family:'Progress Sans Text',Arial,sans-serif;font-size:11px;
+  font-weight:500;letter-spacing:.14em;text-transform:uppercase;color:rgba(255,255,255,.72)}
+@media(max-width:640px){
+  .arag-band{padding:10px 14px}
+  /* see static/shell.html for why 40px, not 56px, at this breakpoint */
+  .arag-band__logo img{height:40px}
+  .arag-band__eyebrow{display:none}
+}
+.login-stage{flex:1;display:flex;align-items:center;justify-content:center;padding:20px}
 .wrap{width:100%;max-width:400px}
 .brand{display:flex;align-items:center;gap:11px;color:#fff;margin-bottom:26px;
   justify-content:center}
@@ -41,6 +57,13 @@ button:hover{background:#9333EA}
 </style>
 </head>
 <body>
+<div class="arag-band" role="banner" aria-label="Progress Agentic RAG">
+  <a class="arag-band__logo" href="https://www.progress.com/agentic-rag" target="_blank" rel="noreferrer" aria-label="Progress Agentic RAG">
+    <img src="/static/brand/progress-arag-logo-alternate.svg" alt="Progress Agentic RAG" height="76">
+  </a>
+  <span class="arag-band__eyebrow">Agentic RAG Demo</span>
+</div>
+<div class="login-stage">
 <div class="wrap">
   <div class="brand">
     <svg width="40" height="40" viewBox="0 0 30 30"><rect width="30" height="30" rx="6" fill="#A855F7"/><path d="M7 19 L15 8 L23 19 H17.5 L15 15.2 L12.5 19 Z" fill="#fff"/><rect x="7" y="21" width="16" height="2.4" rx="1.2" fill="#fff" opacity=".85"/></svg>
@@ -68,6 +91,7 @@ button:hover{background:#9333EA}
     </div>
   </div>
   <div class="foot">Demonstration environment - all companies, people and data are synthetic.</div>
+</div>
 </div>
 <script>
 document.querySelectorAll('#accts tr').forEach(tr=>tr.onclick=()=>{
