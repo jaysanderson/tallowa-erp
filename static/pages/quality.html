@@ -159,7 +159,7 @@ function suspectCard(label, s, top){
 
 function mediaPanel(media){
   if (!media) return '';
-  let h = '<div class="rc-media"><div class="rc-sec-head">Supporting media <span class="hint">from the Knowledge Box</span></div><div class="rc-media-grid">';
+  let h = '<div class="rc-media"><div class="rc-sec-head">Supporting media <span class="hint">from the plant document library</span></div><div class="rc-media-grid">';
   (media.images||[]).forEach(im=>{
     h += '<a class="rc-thumb" href="'+esc(im.url)+'" target="_blank" rel="noopener">'+
       '<img src="'+esc(im.url)+'" loading="lazy" alt=""><span>'+esc(im.filename.replace(/\.[a-z0-9]+$/,'').replace(/-/g,' '))+'</span></a>';
