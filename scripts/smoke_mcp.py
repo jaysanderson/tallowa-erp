@@ -121,18 +121,20 @@ def main():
                       json={"query": "Which runs are on quality hold and is "
                             "any customer shipment exposed?"},
                       stream=True, timeout=180)
+    # The ops assistant now streams the hosted retrieval agent's own trace
+    # (start / tool_call / tool_result / composing / answer) - the old
+    # in-app planner vocabulary (plan.transport, step.surface) is gone
+    # since the ARAG rearchitecture.
     events = [json.loads(line) for line in r.iter_lines() if line]
     types = [e["type"] for e in events]
-    plan = next((e for e in events if e["type"] == "plan"), {})
-    steps = [e for e in events if e["type"] == "step"]
+    tool_ok = [e for e in events
+               if e["type"] == "tool_result" and e.get("ok") is not False]
     answer = next((e for e in events if e["type"] == "answer"), {})
     check("ops-assistant event flow",
-          types[0] == "start" and "plan" in types and "done" in types,
+          types and types[0] == "start" and "answer" in types,
           "->".join(types))
-    check("ops-assistant transport=mcp", plan.get("transport") == "mcp")
-    check("ops-assistant mcp steps", len(steps) >= 1
-          and all(e.get("surface") == "mcp" for e in steps),
-          ", ".join(e["tool"] for e in steps))
+    check("ops-assistant live tool retrievals", len(tool_ok) >= 1,
+          f"{len(tool_ok)} ok tool_result event(s)")
     check("ops-assistant grounded answer", len(answer.get("text", "")) > 80,
           answer.get("text", "")[:100].replace("\n", " "))
 

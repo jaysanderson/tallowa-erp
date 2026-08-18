@@ -4305,6 +4305,19 @@ async def ai_ops_assistant(req: Request, user: dict = Depends(current_user)):
     if not question:
         raise HTTPException(400, "Empty query")
     golden_key = body.get("golden") or "ops-assistant"
+    # Same tool-steering the three use-case prompts carry: without it the
+    # planner locks onto the ai_* capability tools (vague auto-generated
+    # catalogue descriptions), burns its whole iteration budget re-calling
+    # one of them, and honestly reports "not enough data" for questions the
+    # raw records answer easily.
+    agent_q = (question + "\n\nAnswer from the live plant records using the "
+               "list tools that need no IDs (for example holds_list_holds, "
+               "runs_list_runs, shipments_list_shipments, "
+               "sales_orders_list_sales_orders, defects_list_defects, "
+               "lots_list_lots). Call each tool at most once, never call "
+               "*_get_* tools (they need IDs you do not have), and do not "
+               "call ai_* tools - they return composed narratives, not "
+               "records.")
 
     if body.get("mode") == "cached":
         c = cached_golden(golden_key)
@@ -4332,7 +4345,7 @@ async def ai_ops_assistant(req: Request, user: dict = Depends(current_user)):
     async def stream():
         answered = False
         try:
-            async for ev in arag_agent_events(question, bearer):
+            async for ev in arag_agent_events(agent_q, bearer):
                 if ev["type"] == "answer":
                     answered = True
                 yield json.dumps(ev) + "\n"

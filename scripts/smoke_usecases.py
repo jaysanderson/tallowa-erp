@@ -8,10 +8,17 @@ before re-running.
     ../../.venv/bin/python scripts/smoke_usecases.py
 """
 import sys
+from datetime import date, timedelta
 
 import requests
 
 BASE = "http://localhost:8061"
+
+# Nine days out, like the demo types: far enough that the base plan misses it
+# (binding PO lands at seed+11) and the 5-day expedite pull-in beats it. A
+# hardcoded date rots - it drifted into the past once and turned the BEATS
+# assertion into a permanent failure while the product was behaving correctly.
+REQUESTED_DATE = (date.today() + timedelta(days=9)).isoformat()
 FAILS = []
 
 
@@ -108,7 +115,7 @@ def main():
     # ---------------------------------------------------------------- UC3
     r = requests.post(f"{BASE}/api/ai/ctp-commit", headers=H(sales), json={
         "part_no": "TC-70210", "qty": 250, "customer_code": "MAR",
-        "requested_date": "2026-08-01"}, timeout=90)
+        "requested_date": REQUESTED_DATE}, timeout=90)
     d = r.json()
     check("UC3 ctp-commit 200", r.status_code == 200)
     check("UC3 binding constraint identified", d["ctp"]["binding"] is not None)
@@ -119,7 +126,7 @@ def main():
 
     r2 = requests.post(f"{BASE}/api/ai/ctp-commit", headers=H(sales), json={
         "part_no": "TC-70210", "qty": 250, "customer_code": "MAR",
-        "expedite": True, "requested_date": "2026-08-01"}, timeout=90)
+        "expedite": True, "requested_date": REQUESTED_DATE}, timeout=90)
     d2 = r2.json()
     check("UC3 expedite re-run 200", r2.status_code == 200)
     check("UC3 expedite commit date earlier",
