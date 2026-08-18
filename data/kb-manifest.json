@@ -1,7 +1,15 @@
 {
+  "brief-2026-08-line-a2-quality-briefing.mp4": "2b555ad4be914dc4a3c632256b75cb35",
   "cal-01-calibration.md": "1a89a49095bb485284504cfbed112dce",
   "csr-ellandra-summary.md": "ec6f90a7c8ae4659af0115d4cdefe18d",
+  "defect-comparison-diagram.png": "cb4696ba409b493692a327aad798d869",
   "ecn-01-engineering-change.md": "4f6347b247d04c43804d2818de7a9971",
+  "fin-ap-authorisation-matrix.md": "2cfefdf02db54039b469c1429c69de4b",
+  "inj-01-machine-diagram.png": "5c133db569b94ffeb6d5292f33c27ea6",
+  "inj-01-service-timeline.png": "9a6474f1500b40328740d7a76e9f3cba",
+  "om-inj-01-operation-manual.md": "aa44f9bc51cb4a298e6beca1a3a3b96d",
+  "om-inj-01-walkthrough-poster.jpg": "90e069b833b745228bff33f4b00297c9",
+  "om-inj-01-walkthrough.mp4": "05826df68b5e41afa003ba86caea4fd4",
   "qm-01-quality-manual.md": "58e58b637d3a4e06a9ce5988996a5808",
   "qm-04-nonconforming-product.md": "cdecd24b614b48dca05da65ca903a983",
   "qm-07-traceability.md": "a5fe80773c924ee49b41604a36a9b883",
@@ -22,12 +30,5 @@
   "swi-m1-knuckle-machining.md": "9fafeac39c074747ae16d6c19506e9c1",
   "swi-s1-busbar-stamping.md": "a7a350f41f86410f85740986653c0b05",
   "trn-002-cert-matrix.md": "e21d55bfbf734317b431ea8691465818",
-  "wty-01-field-returns.md": "14b79171ff8240e1a33beb68e644f617",
-  "fin-ap-authorisation-matrix.md": "2cfefdf02db54039b469c1429c69de4b",
-  "om-inj-01-operation-manual.md": "aa44f9bc51cb4a298e6beca1a3a3b96d",
-  "inj-01-machine-diagram.png": "5c133db569b94ffeb6d5292f33c27ea6",
-  "defect-comparison-diagram.png": "cb4696ba409b493692a327aad798d869",
-  "inj-01-service-timeline.png": "9a6474f1500b40328740d7a76e9f3cba",
-  "om-inj-01-walkthrough.mp4": "05826df68b5e41afa003ba86caea4fd4",
-  "om-inj-01-walkthrough-poster.jpg": "90e069b833b745228bff33f4b00297c9"
+  "wty-01-field-returns.md": "14b79171ff8240e1a33beb68e644f617"
 }
