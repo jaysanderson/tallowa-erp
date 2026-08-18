@@ -452,6 +452,10 @@ async function loadDraft(){
       {title:'Drafting the 8D report',
        sub:'Pulling the root-cause evidence, live containment status and the QP-8D procedure.',
        renderAnswer: dd=>
+         (dd.no_narrative ? '<div class="hint" style="margin-bottom:6px">'+
+           'The agent\'s narrative was unavailable this run - this draft was '+
+           'composed directly from the live containment record and defect '+
+           'evidence.</div>' : '')+
          '<div id="d8draft"></div>'+citesHtml(dd.citations)+
          '<div class="row" style="margin-top:8px"><button class="btn" id="d8approve">Approve as shown above</button>'+
          '<button class="btn ghost" id="d8print">Print</button></div>'+

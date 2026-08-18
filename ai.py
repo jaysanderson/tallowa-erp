@@ -3905,10 +3905,111 @@ def _8d_agentic_question(line: str) -> str:
         "defect, run, lot, hold number or machine identifier.")
 
 
+def _8d_relevant_holds(rows_by_tool: dict, lot_no: str | None) -> list[dict]:
+    """Open holds tied to the suspect material - from the agent's own
+    relayed rows when it fetched them, else straight from the local DB
+    (this app IS the holds system of record)."""
+    rows = rows_by_tool.get("holds_list_holds") or []
+    if not rows:
+        con = connect()
+        try:
+            rows = q(con, """SELECT h.hold_no, h.scope, h.reason, h.status,
+                             COALESCE(fl.lot_no, rl.lot_no, r.run_no) scope_no
+                             FROM holds h
+                             LEFT JOIN finished_lots fl
+                               ON h.scope='finished_lot' AND fl.id=h.scope_id
+                             LEFT JOIN raw_lots rl
+                               ON h.scope='raw_lot' AND rl.id=h.scope_id
+                             LEFT JOIN runs r
+                               ON h.scope='run' AND r.id=h.scope_id
+                             WHERE h.status='open'""")
+        finally:
+            con.close()
+    if not lot_no:
+        return []
+    def scope_no(h):  # local query says scope_no, the API rows scope_label
+        return h.get("scope_no") or h.get("scope_label")
+    return [h for h in rows
+            if h.get("status", "open") == "open"
+            and (lot_no in (h.get("reason") or "") or scope_no(h) == lot_no)]
+
+
+def _8d_local_draft(structured: dict, holds: list[dict], line: str) -> str:
+    """Deterministic 8D draft composed from the structured evidence - the
+    narrative safety net for the run where the agent's generative step
+    dies. Every figure comes from the same retrieved/backfilled rows the
+    structured panel renders; nothing here is invented."""
+    run = structured.get("run") or {}
+    defects = structured.get("defects") or []
+    mat = structured.get("material") or {}
+    eqp = structured.get("equipment") or {}
+    shift = structured.get("shift") or {}
+    total = structured.get("total_affected_units") or 0
+    codes = ", ".join(sorted({d.get("code") for d in defects if d.get("code")}))
+    tgt = run.get("fpy_target_pct")
+
+    problem = (f"Run {run.get('run_no')} on line {line} completed at a "
+               f"first-pass yield of {run.get('fpy_pct')}%"
+               + (f" against the plant target of {tgt}%" if tgt is not None else "")
+               + f" - {total:.0f} units affected across {len(defects)} defect "
+               f"record(s) ({codes}).")
+
+    rc_bits = []
+    if mat:
+        rc_bits.append(f"Leading suspect ({mat.get('confidence')} confidence): "
+                       f"raw lot {mat.get('lot_no')}. {mat.get('reasoning')}")
+    if eqp:
+        rc_bits.append(f"Equipment ({eqp.get('confidence')} confidence): "
+                       f"{eqp.get('asset_no')}"
+                       + (f" ({eqp.get('name')})" if eqp.get("name") else "")
+                       + f". {eqp.get('reasoning')}")
+    if shift.get("reasoning"):
+        rc_bits.append(f"Shift ({shift.get('confidence')} confidence): "
+                       f"{shift['reasoning']}")
+
+    if holds:
+        cont = " ".join(
+            (f"Hold {h.get('hold_no')} is open on "
+             f"{(h.get('scope') or '').replace('_', ' ')} "
+             f"{h.get('scope_no') or h.get('scope_label')}: "
+             f"{(h.get('reason') or '').rstrip('.')}.") for h in holds)
+        cont += (" Next: hold all affected finished stock for 100 per cent "
+                 "re-inspection and disposition under QP-8D.")
+    else:
+        cont = ("No containment hold is currently recorded against the "
+                "suspect material - place a hold on the affected finished "
+                "lot before any release, per QP-8D.")
+
+    corrective = ("Pending the quality inspector's approval: quarantine any "
+                  f"remaining raw lot {mat.get('lot_no')} material and raise "
+                  "the finding with the supplier"
+                  + (f"; complete the outstanding service on {eqp.get('asset_no')}"
+                     + (f" under {', '.join(eqp['open_work_orders'])}"
+                        if eqp.get("open_work_orders") else "")
+                     if eqp else "")
+                  + f"; re-inspect the {total:.0f} affected units before "
+                  f"release; review the overnight changeover checks on line "
+                  f"{line} to prevent recurrence.")
+
+    return ("## Problem (D2)\n" + problem +
+            "\n\n## Root cause (D4)\n" + " ".join(rc_bits) +
+            "\n\n## Containment (D3)\n" + cont +
+            "\n\n## Corrective action (D5-D7)\n" + corrective)
+
+
 def _8d_build_data(line: str):
     fpy_build = _fpy_build_data(line)
     def build(text: str, rows_by_tool: dict, dict_by_tool: dict) -> dict:
         data = fpy_build(text, rows_by_tool, dict_by_tool)
+        # Generative step died (fallback pass calls this with empty text):
+        # the 8D's deliverable IS the draft text, so compose it
+        # deterministically from the same structured evidence instead of
+        # handing the UI an empty document.
+        if not (text or "").strip() and data.get("structured"):
+            lot = ((data["structured"].get("material") or {}).get("lot_no"))
+            holds = _8d_relevant_holds(rows_by_tool, lot)
+            text = _8d_local_draft(data["structured"], holds, line)
+            data["answer"] = text
         data["fields"] = split_8d_sections(text)
         return data
     return build
